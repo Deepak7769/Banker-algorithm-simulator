@@ -1,0 +1,30 @@
+# Node / npm
+node_modules/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Generated static / Capacitor web output
+_site/
+www/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+
+# Android / Gradle local and generated files
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.idea/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Local editor / OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

@@ -1,0 +1,19 @@
+{
+  "name": "bankers-algorithm-tidewater-simulator",
+  "version": "2.1.0",
+  "description": "Banker's Algorithm — Tidewater Simulator with interactive deadlock avoidance laboratory",
+  "main": "index.html",
+  "scripts": {
+    "test": "node test_bankers.js",
+    "build": "node scripts/build-www.js",
+    "cap:add": "npx cap add android",
+    "cap:sync": "node scripts/build-www.js && npx cap sync android",
+    "cap:open": "npx cap open android",
+    "build:site": "node scripts/build-site.js"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3"
+  }
+}

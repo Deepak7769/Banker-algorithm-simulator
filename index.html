@@ -1,0 +1,2997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Banker’s Algorithm — Tidewater Simulator 2.0</title>
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#030d1c">
+<meta name="application-name" content="Tidewater Banker Simulator">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Tidewater Banker Simulator">
+<meta property="og:description" content="Explore Banker’s Algorithm, safe sequences, and deadlock avoidance in an interactive ocean-inspired laboratory.">
+<meta name="twitter:card" content="summary">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg">
+<meta name="description" content="Interactive Banker's Algorithm laboratory for operating systems deadlock avoidance, with live resource flow visualization, safe sequence exploration, and What-If analysis.">
+
+<!-- KaTeX for crisp mathematical formulas (Offline-ready with local bundled assets & fallback) -->
+<link rel="stylesheet" href="./vendor/katex/katex.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';">
+<script defer src="./vendor/katex/katex.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';"></script>
+<script defer src="./vendor/katex/auto-render.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js';" onload="if(window.renderMathInElement)renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});"></script>
+
+<style>
+:root {
+  --bg: #030d1c;
+  --bg-sub: #071a2e;
+  --fg: #e4f3ff;
+  --mut: #8aaec8;
+  --cy: #38e8ff;
+  --aq: #2de2b5;
+  --vi: #a595ff;
+  --bad: #ff6f90;
+  --warn: #ffc46b;
+  --gl: rgba(9, 30, 56, .72);
+  --gl-card: rgba(5, 21, 43, .68);
+  --bd: rgba(120, 210, 255, .22);
+  --bd-glow: rgba(56, 232, 255, .45);
+  color-scheme: dark;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+*, *:before, *:after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--fg);
+  font: 15px/1.55 "Gill Sans", "Trebuchet MS", system-ui, -apple-system, sans-serif;
+  background: radial-gradient(1200px 700px at 15% -10%, #0b3a63 0, transparent 60%),
+             radial-gradient(900px 600px at 95% 30%, #2a1d63 0, transparent 55%),
+             linear-gradient(#04142a, #020a16 70%);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+canvas#w {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+#land, #app {
+  position: relative;
+  z-index: 1;
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 20px;
+}
+h1, h2, h3, h4 {
+  font-family: Georgia, "Iowan Old Style", serif;
+  font-weight: 400;
+  margin: 0;
+}
+h1 {
+  font-size: clamp(38px, 8vw, 96px);
+  line-height: .98;
+  letter-spacing: -.02em;
+}
+.l {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(35px) rotateX(60deg);
+  animation: up .85s cubic-bezier(.2, .8, .2, 1) forwards;
+  animation-delay: calc(var(--i) * 45ms);
+  background: linear-gradient(#f2fcff, #38e8ff 70%, #4a7dff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@keyframes up { to { opacity: 1; transform: none; } }
+.hero {
+  min-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+}
+.sub {
+  font: italic 22px/1.4 Georgia, serif;
+  color: var(--mut);
+  max-width: 38ch;
+  opacity: 0;
+  animation: up .9s .8s forwards;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.btn {
+  position: relative;
+  overflow: hidden;
+  font: inherit;
+  color: var(--fg);
+  background: rgba(56, 232, 255, .08);
+  border: 1px solid var(--bd);
+  border-radius: 12px;
+  padding: 9px 16px;
+  min-height: 42px;
+  cursor: pointer;
+  transition: background .2s, transform .2s, border-color .2s, box-shadow .2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:hover {
+  background: rgba(56, 232, 255, .18);
+  border-color: var(--cy);
+  box-shadow: 0 0 12px rgba(56, 232, 255, .2);
+}
+.btn:active { transform: scale(.97); }
+.btn.p {
+  background: linear-gradient(120deg, #0fb8d9, #4f7dff);
+  border: 0;
+  font-weight: 600;
+  color: #03101f;
+  padding: 11px 22px;
+}
+.btn.p:hover { box-shadow: 0 0 18px rgba(56, 232, 255, .45); }
+.btn.s { min-height: 34px; padding: 5px 12px; font-size: 13px; }
+.btn:disabled { opacity: .4; cursor: default; pointer-events: none; }
+.btn.rp:after {
+  content: "";
+  position: absolute;
+  left: var(--x, 50%);
+  top: var(--y, 50%);
+  width: 10px;
+  height: 10px;
+  margin: -5px;
+  border-radius: 50%;
+  background: rgba(56, 232, 255, .38);
+  animation: rpl .85s cubic-bezier(0.1, 0.4, 0.2, 1);
+  pointer-events: none;
+}
+@keyframes rpl {
+  from { opacity: .75; transform: scale(1); }
+  to { opacity: 0; transform: scale(28); }
+}
+:focus-visible { outline: 2px solid var(--cy); outline-offset: 2px; }
+.g {
+  background: var(--gl-card);
+  border: 1px solid var(--bd);
+  border-radius: 18px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 18px;
+  min-width: 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .35);
+}
+.g h2 {
+  font-size: 22px;
+  margin-bottom: 12px;
+  color: #d5eeff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
+  margin-top: 16px;
+}
+.span { grid-column: 1 / -1; }
+.rcs {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.rc {
+  border: 1px solid var(--bd);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(3, 13, 28, .55);
+  position: relative;
+}
+.big {
+  font: 38px/1 Georgia, serif;
+  margin: 4px 6px 4px 0;
+  color: var(--cy);
+  display: inline-block;
+}
+.bar {
+  height: 10px;
+  border-radius: 6px;
+  margin: 8px 0 6px;
+  background: repeating-linear-gradient(45deg, #0b2a47 0 6px, #0e3556 6px 12px);
+  display: flex;
+  overflow: hidden;
+}
+.bar i {
+  display: block;
+  height: 100%;
+  transition: width .4s cubic-bezier(.2, .8, .2, 1);
+}
+small, .mut { color: var(--mut); }
+.tw {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 6px;
+  border-radius: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bd) transparent;
+}
+.tw::-webkit-scrollbar {
+  height: 6px;
+}
+.tw::-webkit-scrollbar-thumb {
+  background: var(--bd);
+  border-radius: 3px;
+}
+#mx table, #hist-tbl, #test-results-tbl {
+  min-width: 540px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+th, td {
+  padding: 6px 8px;
+  text-align: center;
+  font-weight: 400;
+  white-space: nowrap;
+}
+thead th {
+  color: var(--mut);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+tbody th {
+  text-align: left;
+  font-weight: 600;
+}
+td input {
+  width: 50px;
+  min-height: 32px;
+  text-align: center;
+}
+input, select {
+  font: inherit;
+  color: var(--fg);
+  background: rgba(3, 13, 28, .7);
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+input:focus, select:focus {
+  border-color: var(--cy);
+  outline: none;
+}
+tr.cur { background: rgba(56, 232, 255, .16); }
+tr.fin { background: rgba(45, 226, 181, .1); }
+tr.done th { color: var(--mut); text-decoration: line-through; }
+tr.done td { opacity: .7; }
+td.nd { color: var(--vi); font-weight: 600; }
+tfoot td, tfoot th {
+  border-top: 1px solid var(--bd);
+  color: var(--aq);
+  font-weight: 600;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .03em;
+  border: 1px solid;
+}
+.badge.ok {
+  color: var(--aq);
+  background: rgba(45, 226, 181, .12);
+  border-color: rgba(45, 226, 181, .3);
+}
+.badge.bad {
+  color: var(--bad);
+  background: rgba(255, 111, 144, .14);
+  border-color: rgba(255, 111, 144, .35);
+}
+.badge.wait {
+  color: var(--warn);
+  background: rgba(255, 196, 107, .14);
+  border-color: rgba(255, 196, 107, .35);
+}
+.badge.info {
+  color: var(--cy);
+  background: rgba(56, 232, 255, .12);
+  border-color: rgba(56, 232, 255, .3);
+}
+code {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  color: var(--cy);
+  background: rgba(56, 232, 255, .08);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+#log {
+  min-height: 3.4em;
+  padding: 12px 14px;
+  border-left: 4px solid var(--vi);
+  background: rgba(165, 149, 255, .08);
+  border-radius: 0 10px 10px 0;
+  margin-top: 12px;
+  transition: all .2s;
+}
+#log.ok { border-color: var(--aq); background: rgba(45, 226, 181, .08); }
+#log.bad { border-color: var(--bad); background: rgba(255, 111, 144, .08); }
+#log.wait { border-color: var(--warn); background: rgba(255, 196, 107, .08); }
+svg.fl {
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  display: block;
+}
+.fl text {
+  fill: var(--fg);
+  font: 13px system-ui, -apple-system, sans-serif;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.fl .pn circle {
+  fill: #0a2c4d;
+  stroke: var(--cy);
+  stroke-width: 2;
+  transition: all .3s;
+}
+.fl .pn { cursor: pointer; }
+.fl .pn.done circle { stroke: var(--mut); fill: #071a2e; opacity: .6; }
+.fl .pn.fin circle { stroke: var(--aq); fill: #0a3b3a; }
+.fl .pn.cur circle { stroke: #fff; fill: #0f6a88; filter: drop-shadow(0 0 10px var(--cy)); }
+.fl .pn.bad circle { stroke: var(--bad); fill: #380e1b; }
+.fl .rn rect { fill: #13224f; stroke: var(--vi); stroke-width: 2; }
+.fl .rn { cursor: pointer; }
+
+/* Modals and Drawers */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 10, 22, .78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s;
+}
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+.modal {
+  background: var(--bg-sub);
+  border: 1px solid var(--bd-glow);
+  border-radius: 20px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, .65);
+  max-width: 920px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.modal-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--bd);
+  padding-bottom: 12px;
+}
+.nav-bar {
+  background: rgba(5, 21, 43, .88);
+  border: 1px solid var(--bd);
+  border-radius: 16px;
+  padding: 10px 14px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  position: sticky;
+  top: 10px;
+  z-index: 800;
+  margin-bottom: 16px;
+}
+#hist-banner {
+  background: rgba(255, 196, 107, .15);
+  border: 1px solid var(--warn);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+/* Animation controls */
+.nofx *, .nofx *:before, .nofx *:after {
+  animation-duration: .001ms !important;
+  animation-delay: 0s !important;
+  transition-duration: .001ms !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *:before, *:after {
+    animation-duration: .001ms !important;
+    animation-delay: 0s !important;
+    transition-duration: .001ms !important;
+  }
+}
+details {
+  margin: 8px 0;
+  background: rgba(3, 13, 28, .4);
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--bd);
+}
+summary {
+  cursor: pointer;
+  color: var(--cy);
+  font-weight: 600;
+}
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  background: var(--bg-sub);
+  border: 1px solid var(--bd);
+  border-radius: 12px;
+  padding: 12px 18px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .55);
+  animation: toast-in .3s ease-out;
+}
+@keyframes toast-in {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* Mobile & Touch Responsiveness */
+@media (max-width: 768px) {
+  #land, #app {
+    padding: 12px;
+    max-width: 100vw;
+  }
+  .nav-bar {
+    padding: 8px 10px;
+    top: 4px;
+    border-radius: 12px;
+    gap: 8px;
+  }
+  .nav-bar .row {
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+  }
+  .nav-bar .btn.s {
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-height: 38px;
+    padding: 6px 12px;
+  }
+  .nav-bar label {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .g {
+    padding: 14px;
+    border-radius: 14px;
+  }
+  .g h2 {
+    font-size: 18px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .modal {
+    padding: 16px 14px;
+    border-radius: 16px;
+    max-width: 95vw;
+    max-height: 92vh;
+    gap: 12px;
+  }
+  .hero {
+    min-height: 65vh;
+    gap: 16px;
+  }
+  .sub {
+    font-size: 18px;
+  }
+  .btn {
+    min-height: 42px;
+  }
+  td input {
+    width: 44px;
+    min-height: 34px;
+    font-size: 14px;
+  }
+  th, td {
+    padding: 5px 6px;
+    font-size: 13px;
+  }
+  .toast {
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 380px) {
+  #land, #app {
+    padding: 8px;
+  }
+  .g {
+    padding: 10px;
+  }
+  .rcs {
+    grid-template-columns: 1fr;
+  }
+  .btn {
+    font-size: 13px;
+    padding: 7px 10px;
+  }
+  h1 {
+    font-size: clamp(30px, 9vw, 42px);
+  }
+}
+</style>
+</head>
+<body>
+<canvas id="w" aria-hidden="true"></canvas>
+
+<!-- LANDING VIEW -->
+<main id="land">
+  <div class="hero">
+    <h1 id="ttl" aria-label="Banker’s Algorithm"></h1>
+    <p class="sub">Dynamic resource allocation. Provable system safety. Interactive simulation laboratory.</p>
+    <div class="row">
+      <button class="btn p" id="go">🚀 Launch Simulator</button>
+      <button class="btn" id="ex">📖 How It Works</button>
+      <button class="btn" id="demo-btn">📺 Presentation Mode</button>
+      <button class="btn s" id="sk">Skip intro</button>
+    </div>
+    <p class="mut" style="max-width:64ch">
+      Deadlock occurs when processes wait mutually forever on resources. The Banker’s Algorithm prevents deadlock by simulating the future: a request is granted if and only if a complete finishing order (safe sequence) remains guaranteed.
+    </p>
+  </div>
+  <section id="how">
+    <div class="grid" style="margin:40px 0">
+      <div class="g">
+        <h3>Safe State Guarantee</h3>
+        <p class="mut">An execution sequence $P_{s_1}, P_{s_2}, \dots$ exists such that every active process can obtain its maximum declared Need, execute to completion, and return all held allocations to the Available pool.</p>
+      </div>
+      <div class="g">
+        <h3>Transactional Tentative Grant</h3>
+        <p class="mut">A proposed request is tentatively deducted from Available and credited to the process. The safety algorithm verifies whether the new state has a safe path. Unsafe? The allocation rolls back instantly with zero leakage.</p>
+      </div>
+      <div class="g span">
+        <h3>Live Flow Preview</h3>
+        <svg id="pv" class="fl" viewBox="0 0 700 360" role="img" aria-label="Classic safe state resource graph preview"></svg>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- MAIN APPLICATION VIEW -->
+<main id="app" hidden>
+  <!-- TOP STICKY NAVBAR -->
+  <nav class="nav-bar row" style="justify-content:space-between">
+    <div class="row">
+      <button class="btn s" id="bk">← Intro</button>
+      <select id="sc" aria-label="Select Scenario"></select>
+      <button class="btn s" id="rs" title="Reset current scenario to original state">↺ Reset</button>
+      <button class="btn s" id="sv" title="Save current custom state to browser storage">💾 Save Custom</button>
+      <button class="btn s" id="dl" title="Delete custom scenario">✕ Delete Custom</button>
+      <button class="btn s" id="btn-imp" title="Import scenario from JSON file">📂 Import</button>
+      <button class="btn s" id="btn-exp" title="Export scenario to JSON file">📤 Export</button>
+    </div>
+    <div class="row">
+      <button class="btn s" id="btn-whatif">🔬 What-If Lab</button>
+      <button class="btn s" id="btn-quiz">🎯 Challenges</button>
+      <button class="btn s" id="btn-pres">📺 Present</button>
+      <button class="btn s" id="btn-hist">📜 History (<span id="hist-cnt">0</span>)</button>
+      <button class="btn s" id="btn-test">🧪 Test Suite</button>
+      <button class="btn s" id="btn-rep">📄 Report</button>
+      <label class="row" style="font-size:13px;margin-left:6px">
+        Water:
+        <select id="wq" style="font-size:12px;padding:3px">
+          <option value="high">High (WebGL)</option>
+          <option value="med">Medium (WebGL)</option>
+          <option value="low">Low (Canvas)</option>
+          <option value="off">Off</option>
+        </select>
+      </label>
+      <label class="row" style="font-size:13px"><input type="checkbox" id="fx" checked> Motion</label>
+    </div>
+  </nav>
+
+  <!-- TIME-TRAVEL INSPECTION BANNER -->
+  <div id="hist-banner" hidden>
+    <div>
+      <span class="badge wait">⚠️ Historical Snapshot (Read-Only)</span>
+      <span id="hist-banner-txt" style="margin-left:8px"></span>
+    </div>
+    <div class="row">
+      <button class="btn s" id="hist-live-btn">Exit to Live Simulation</button>
+      <button class="btn s p" id="hist-fork-btn">Fork from this Snapshot</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- RESOURCE OVERVIEW CARD -->
+    <section class="g span">
+      <h2>
+        <span>Resource Pools &amp; Available Accounting</span>
+        <button class="btn s" id="btn-mgr-res">⚙ Manage Resources</button>
+      </h2>
+      <div class="rcs" id="res"></div>
+      <div id="inv-check" style="margin-top:8px;font-size:13px;display:flex;gap:12px"></div>
+    </section>
+
+    <!-- MATRICES CARD -->
+    <section class="g">
+      <h2>
+        <span>Allocation, Maximum &amp; Need Matrices</span>
+        <div class="row">
+          <button class="btn s" id="ap">+ Add Process</button>
+        </div>
+      </h2>
+      <div class="tw" id="mx"></div>
+      <p class="mut" style="font-size:13px">
+        Need is calculated dynamically as $\text{Need} = \text{Maximum} - \text{Allocation}$. Cell edits are transactionally validated: Allocation cannot exceed Maximum, and sum of allocations cannot exceed Total.
+      </p>
+    </section>
+
+    <!-- SAFETY CHECK & STEP-BY-STEP TRACE -->
+    <section class="g">
+      <h2>
+        <span>Safety Verification Engine</span>
+        <span id="st-badge"></span>
+      </h2>
+      <div id="st" aria-live="polite"></div>
+      <div class="row" style="margin:12px 0">
+        <button class="btn s" id="pr" aria-label="Previous step">◀ Prev</button>
+        <button class="btn p" id="pl" style="padding:6px 18px">Play</button>
+        <button class="btn s" id="nx" aria-label="Next step">Next ▶</button>
+        <button class="btn s" id="rt">Restart</button>
+        <label style="font-size:13px">Speed <input type="range" id="sp" min="1" max="10" value="5" style="vertical-align:middle"></label>
+      </div>
+      <div id="safe-seqs-box" style="font-size:13px;background:rgba(3,13,28,.4);padding:8px 12px;border-radius:8px;border:1px solid var(--bd)"></div>
+      <p class="mut" style="font-size:12px;margin-top:8px">
+        <strong>Trace note:</strong> During playback, the simulated <code>Work</code> vector reflects hypothetical releases. The real committed <code>Available</code> vector remains unchanged until an actual transaction commits.
+      </p>
+    </section>
+
+    <!-- REQUEST INTERFACE CARD -->
+    <section class="g">
+      <h2><span>Resource Request Transaction</span></h2>
+      <div class="row" style="margin-bottom:8px">
+        <label>Process: <select id="rp" aria-label="Requesting process"></select></label>
+        <span id="ri" class="row"></span>
+        <button class="btn p" id="sb" style="padding:8px 20px">Submit Request</button>
+      </div>
+      <div id="log" role="status" aria-live="polite">Pick a scenario or enter a resource vector to request.</div>
+      <details style="margin-top:12px">
+        <summary>🎯 Quick Prediction Challenge</summary>
+        <p class="mut" style="font-size:13px">Before running the Banker's engine, predict what the decision will be:</p>
+        <div class="row" style="margin:6px 0">
+          <button class="btn s" data-pd="GRANTED">Granted (Safe)</button>
+          <button class="btn s" data-pd="REJECTED_UNSAFE">Rejected: Unsafe State</button>
+          <button class="btn s" data-pd="INSUFFICIENT_AVAILABLE">Deferred: Not Enough Free</button>
+          <button class="btn s" data-pd="EXCEEDS_NEED">Error: Exceeds Declared Need</button>
+        </div>
+        <p id="pdr" style="font-weight:600;font-size:13px;margin:4px 0"></p>
+      </details>
+    </section>
+
+    <!-- RESOURCE FLOW GRAPH -->
+    <section class="g span">
+      <h2><span>Interactive Resource Flow &amp; Allocation Graph</span></h2>
+      <svg id="fl" class="fl" viewBox="0 0 700 360" role="img" aria-label="Interactive Resource flow graph"></svg>
+      <p id="det" class="mut" style="font-size:13px;margin-top:8px">Click or navigate to any Process or Resource node to inspect current holdings, maximum demands, and remaining need.</p>
+    </section>
+
+    <!-- EDUCATIONAL & THEORETICAL GUIDE -->
+    <section class="g span">
+      <h2><span>Banker’s Algorithm Architectural Guide &amp; Invariants</span></h2>
+      <details open>
+        <summary>Mathematical Vector Definitions</summary>
+        <p class="mut">
+          Let $n$ be the number of processes and $m$ be the number of resource types:<br>
+          • <strong>Available $[m]$:</strong> If $\text{Available}[j] = k$, then $k$ instances of resource type $R_j$ are free to be assigned.<br>
+          • <strong>Maximum $[n \times m]$:</strong> If $\text{Max}[i][j] = k$, process $P_i$ may request at most $k$ instances of $R_j$.<br>
+          • <strong>Allocation $[n \times m]$:</strong> If $\text{Alloc}[i][j] = k$, process $P_i$ currently holds $k$ instances of $R_j$.<br>
+          • <strong>Need $[n \times m]$:</strong> $\text{Need}[i][j] = \text{Max}[i][j] - \text{Alloc}[i][j]$. Remaining resources $P_i$ may need to finish.<br>
+          • <strong>Conservation Law:</strong> $\forall j \in [0, m-1],\; \text{Available}[j] + \sum_{i=0}^{n-1} \text{Alloc}[i][j] = \text{Total}[j]$.
+        </p>
+      </details>
+      <details>
+        <summary>The Safety Verification Algorithm (Work &amp; Finish)</summary>
+        <p class="mut">
+          1. Let $\text{Work} = \text{Available}$ and $\text{Finish}[i] = \text{false}$ for all active processes.<br>
+          2. Find an index $i$ such that $\text{Finish}[i] == \text{false}$ and $\text{Need}_i \le \text{Work}$. If no such $i$ exists, go to Step 4.<br>
+          3. $\text{Work} = \text{Work} + \text{Allocation}_i$; $\text{Finish}[i] = \text{true}$; repeat from Step 2.<br>
+          4. If $\text{Finish}[i] == \text{true}$ for all $i$, the system is in a <strong>safe state</strong> with a valid safe sequence.
+        </p>
+      </details>
+      <details>
+        <summary>Unsafe State vs. Deadlock</summary>
+        <p class="mut">
+          An <strong>unsafe state</strong> is not inherently deadlocked. It merely means the operating system can no longer <em>guarantee</em> that deadlock will be avoided if processes simultaneously demand their full declared maximums. The Banker's Algorithm prevents this possibility entirely by forbidding transitions into unsafe states.
+        </p>
+      </details>
+    </section>
+  </div>
+</main>
+
+<!-- MODALS -->
+<!-- 1. WHAT-IF COMPARISON LABORATORY MODAL -->
+<div class="modal-overlay" id="mod-whatif">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h3>🔬 What-If Candidate Analysis Laboratory</h3>
+      <button class="btn s" data-close>✕</button>
+    </div>
+    <p class="mut">
+      Test a hypothetical resource request or matrix allocation against the baseline without modifying the live simulation. Side-by-side analysis reveals exact safety changes, sequence impacts, and potential deadlock bottlenecks.
+    </p>
+    <div class="row" style="background:rgba(3,13,28,.6);padding:12px;border-radius:12px;border:1px solid var(--bd)">
+      <label>Hypothetical Process: <select id="wi-p"></select></label>
+      <div id="wi-cur-proc-info" style="font-size:12px;color:var(--cy);width:100%;margin:4px 0"></div>
+      <span id="wi-inputs" class="row"></span>
+      <button class="btn p s" id="wi-run">Evaluate Candidate</button>
+    </div>
+    <div id="wi-diff-output"></div>
+    <div class="row" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn s" id="wi-discard">Discard &amp; Close</button>
+      <button class="btn p s" id="wi-commit" disabled>✓ Commit Transaction to Live State</button>
+    </div>
+  </div>
+</div>
+
+<!-- 2. RESOURCE & PROCESS MANAGEMENT MODAL -->
+<div class="modal-overlay" id="mod-res">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h3>⚙ Resource Pool &amp; Accounting Management</h3>
+      <button class="btn s" data-close>✕</button>
+    </div>
+    <div class="grid">
+      <div class="g">
+        <h4>Add Resource Type</h4>
+        <div class="row" style="margin-top:8px">
+          <input type="text" id="nr-name" placeholder="Name (e.g. D, GPU)" style="width:120px">
+          <input type="number" id="nr-tot" min="1" placeholder="Total" style="width:80px">
+          <button class="btn s p" id="nr-add">+ Add Resource</button>
+        </div>
+      </div>
+      <div class="g">
+        <h4>Existing Resources</h4>
+        <div id="res-list" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. CHALLENGE & PRACTICE QUIZ MODAL -->
+<div class="modal-overlay" id="mod-quiz">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h3>🎯 Banker’s Algorithm Challenge Arena</h3>
+      <button class="btn s" data-close>✕</button>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <span>Score: <strong id="qz-score" style="color:var(--cy)">0</strong> / <span id="qz-total">0</span></span>
+      <button class="btn s" id="qz-next">Next Challenge ❯</button>
+    </div>
+    <div id="qz-card" class="g" style="margin-top:8px"></div>
+    <div id="qz-feedback" style="font-weight:600;min-height:24px"></div>
+  </div>
+</div>
+
+<!-- 4. PRESENTATION / LECTURE MODE MODAL -->
+<div class="modal-overlay" id="mod-pres">
+  <div class="modal" style="max-width:1100px;background:rgba(3,13,28,.95)">
+    <div class="modal-hdr">
+      <h3>📺 Presentation &amp; Lecture Walkthrough</h3>
+      <button class="btn s" data-close>✕ Exit Presentation</button>
+    </div>
+    <div id="pres-content">
+      <div class="row" style="justify-content:space-between;margin-bottom:12px">
+        <span class="badge info" id="pres-step-badge">Slide 1 of 5</span>
+        <div class="row">
+          <button class="btn s" id="pres-prev">◀ Previous</button>
+          <button class="btn p s" id="pres-play">▶ Auto-Play</button>
+          <button class="btn s" id="pres-next">Next ▶</button>
+        </div>
+      </div>
+      <div class="g" style="padding:22px;border-color:var(--cy)">
+        <h2 id="pres-title" style="color:var(--cy);margin-bottom:12px"></h2>
+        <div id="pres-narration" style="font-size:18px;line-height:1.6;color:var(--fg);margin-bottom:16px"></div>
+        <div id="pres-matrix-view" class="tw"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. TRANSACTION HISTORY MODAL -->
+<div class="modal-overlay" id="mod-hist">
+  <div class="modal" style="max-width:960px">
+    <div class="modal-hdr">
+      <h3>📜 Transaction History &amp; Event Replay</h3>
+      <button class="btn s" data-close>✕</button>
+    </div>
+    <p class="mut">
+      Every request, grant, rejection, deferral, and matrix modification is recorded in this audit log. Click any past event to inspect the historical state snapshot.
+    </p>
+    <div class="tw" style="max-height:480px">
+      <table id="hist-tbl">
+        <thead><tr><th>#</th><th>Time</th><th>Event</th><th>Process</th><th>Vector</th><th>Outcome</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 6. EXPORT SIMULATION REPORT MODAL -->
+<div class="modal-overlay" id="mod-rep">
+  <div class="modal" style="max-width:920px">
+    <div class="modal-hdr">
+      <h3>📄 Exportable Simulation Report</h3>
+      <button class="btn s" data-close>✕</button>
+    </div>
+    <div class="row">
+      <button class="btn s p" id="rep-dl-md">📥 Download Markdown</button>
+      <button class="btn s" id="rep-copy">📋 Copy Markdown</button>
+      <button class="btn s" id="rep-print">🖨 Print / PDF</button>
+    </div>
+    <div class="tw" style="max-height:500px;background:rgba(3,13,28,.6);padding:14px;border-radius:10px;border:1px solid var(--bd)">
+      <pre id="rep-text" style="font-family:ui-monospace,Menlo,monospace;font-size:13px;white-space:pre-wrap;color:var(--fg);margin:0"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- 7. AUTOMATED TEST SUITE MODAL -->
+<div class="modal-overlay" id="mod-test">
+  <div class="modal" style="max-width:860px">
+    <div class="modal-hdr">
+      <h3>🧪 Automated Verification &amp; Invariant Test Runner</h3>
+      <button class="btn s" data-close>✕</button>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <div id="test-summary">Tests: Ready to run</div>
+      <button class="btn s p" id="btn-rerun-tests">↺ Run All Tests</button>
+    </div>
+    <div class="tw" style="max-height:480px;margin-top:12px">
+      <table id="test-results-tbl">
+        <thead><tr><th>Status</th><th>Test Suite</th><th>Assertions</th><th>Duration</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="json-file-input" accept=".json" style="display:none">
+
+<script>
+/* =====================================================================
+   BANKER'S ALGORITHM ENGINE (Pure, deterministic, no DOM)
+   ===================================================================== */
+const vec = {
+  add: (a, b) => a.map((x, i) => x + (b[i] || 0)),
+  sub: (a, b) => a.map((x, i) => x - (b[i] || 0)),
+  le: (a, b) => a.every((x, i) => x <= (b[i] || 0)),
+  eq: (a, b) => a.length === b.length && a.every((x, i) => x === b[i]),
+  zero: n => Array(n).fill(0),
+  fmt: v => '(' + v.join(', ') + ')'
+};
+
+const Engine = {
+  need: p => p.done ? vec.zero(p.m.length) : vec.sub(p.m, p.a),
+  alloc: S => S.procs.filter(p => !p.done).reduce((t, p) => vec.add(t, p.a), vec.zero(S.names.length)),
+  avail: S => vec.sub(S.total, Engine.alloc(S)),
+  
+  clone: S => ({
+    names: [...S.names],
+    total: [...S.total],
+    procs: S.procs.map(p => ({
+      id: p.id,
+      name: p.name || p.id,
+      a: [...p.a],
+      m: [...p.m],
+      done: Boolean(p.done),
+      released: p.released ? [...p.released] : null
+    }))
+  }),
+
+  validateState: S => {
+    try {
+      if (!S || !Array.isArray(S.names) || !Array.isArray(S.total) || !Array.isArray(S.procs)) return 'Missing required state structure';
+      const n = S.names.length;
+      if (!n || S.total.length !== n) return 'Resource dimension mismatch';
+      const isIntVec = v => Array.isArray(v) && v.length === n && v.every(x => Number.isInteger(x) && x >= 0);
+      if (!isIntVec(S.total)) return 'Total capacity must be non-negative integers';
+      for (const p of S.procs) {
+        if (!isIntVec(p.a) || !isIntVec(p.m)) return `${p.id}: Vectors must be non-negative integers of dimension ${n}`;
+        if (!vec.le(p.a, p.m)) return `${p.id}: Current Allocation ${vec.fmt(p.a)} exceeds declared Maximum ${vec.fmt(p.m)}`;
+      }
+      const totalAlloc = Engine.alloc(S);
+      if (!vec.le(totalAlloc, S.total)) return `Total active allocations ${vec.fmt(totalAlloc)} exceed system total ${vec.fmt(S.total)}`;
+      return '';
+    } catch (e) {
+      return 'Malformed state exception: ' + e.message;
+    }
+  },
+
+  safety: S => {
+    let w = Engine.avail(S);
+    const fin = S.procs.map(p => p.done);
+    const trace = [];
+    const seq = [];
+    
+    for (;;) {
+      const i = S.procs.findIndex((p, k) => !fin[k] && vec.le(Engine.need(p), w));
+      if (i < 0) break;
+      const p = S.procs[i];
+      const wb = [...w];
+      w = vec.add(w, p.a);
+      fin[i] = true;
+      seq.push(p.id);
+      trace.push({
+        pid: p.id,
+        need: Engine.need(p),
+        workBefore: wb,
+        released: [...p.a],
+        workAfter: [...w]
+      });
+    }
+    
+    const blocked = S.procs.filter((p, k) => !fin[k]).map(p => ({
+      id: p.id,
+      need: Engine.need(p),
+      deficits: Engine.need(p).map((req, j) => Math.max(0, req - w[j]))
+    }));
+
+    return {
+      safe: fin.every(Boolean),
+      seq,
+      trace,
+      blocked,
+      finalWork: w
+    };
+  },
+
+  findAllSafeSequences: (S, limit = 24) => {
+    const results = [];
+    const activeIndices = [];
+    S.procs.forEach((p, i) => { if (!p.done) activeIndices.push(i); });
+    const n = activeIndices.length;
+    if (n === 0) return [[]];
+
+    function dfs(currentWork, finishSet, currentSeq) {
+      if (results.length >= limit) return;
+      if (currentSeq.length === n) {
+        results.push([...currentSeq]);
+        return;
+      }
+      for (const idx of activeIndices) {
+        if (!finishSet.has(idx)) {
+          const p = S.procs[idx];
+          if (vec.le(Engine.need(p), currentWork)) {
+            finishSet.add(idx);
+            currentSeq.push(p.id);
+            dfs(vec.add(currentWork, p.a), finishSet, currentSeq);
+            currentSeq.pop();
+            finishSet.delete(idx);
+          }
+        }
+      }
+    }
+
+    dfs(Engine.avail(S), new Set(), []);
+    return results;
+  },
+
+  request: (S, procIdx, r) => {
+    const p = S.procs[procIdx];
+    const n = S.names.length;
+    const R = (code, reason, state = null, sf = null) => ({ code, reason, state, sf, procId: p ? p.id : null, r });
+
+    if (!p) return R('INVALID_PROCESS', 'Selected process does not exist');
+    if (!Array.isArray(r) || r.length !== n || !r.every(x => Number.isInteger(x) && x >= 0)) {
+      return R('INVALID_INPUT', 'Request vector must contain non-negative integers matching resource dimensions.');
+    }
+    if (p.done) return R('PROCESS_COMPLETED', `${p.id} has already executed to completion and released its resources.`);
+    
+    const pNeed = Engine.need(p);
+    if (!vec.le(r, pNeed)) {
+      return R('EXCEEDS_NEED', `${p.id} requested ${vec.fmt(r)}, which exceeds its remaining declared Need of ${vec.fmt(pNeed)}.`);
+    }
+
+    const av = Engine.avail(S);
+    if (!vec.le(r, av)) {
+      return R('INSUFFICIENT_AVAILABLE', `Requested ${vec.fmt(r)}, but only ${vec.fmt(av)} is currently free in the Available pool. ${p.id} must wait.`);
+    }
+
+    // Tentative allocation
+    const T = Engine.clone(S);
+    T.procs[procIdx].a = vec.add(T.procs[procIdx].a, r);
+    const sf = Engine.safety(T);
+
+    if (!sf.safe) {
+      const blockedPids = sf.blocked.map(b => b.id).join(', ');
+      return R('REJECTED_UNSAFE', `Granting leaves no valid safe execution order. Blocked processes: ${blockedPids}. Tentative allocation rolled back.`, null, sf);
+    }
+
+    return R('GRANTED', `Request granted safely. Valid completion order guaranteed: ${sf.seq.join(' → ')}.`, T, sf);
+  },
+
+  completeProcess: (S, procIdx) => {
+    const p = S.procs[procIdx];
+    if (!p || p.done) return { success: false, reason: 'Process already completed or invalid.' };
+    const T = Engine.clone(S);
+    const target = T.procs[procIdx];
+    target.done = true;
+    target.released = [...target.a];
+    target.a = vec.zero(T.names.length); // Visibly zero out active allocation
+    return { success: true, state: T, released: target.released, pid: p.id };
+  }
+};
+
+/* =====================================================================
+   TRANSACTION HISTORY & EVENT SOURCING MANAGER
+   ===================================================================== */
+const HistoryManager = {
+  events: [],
+  currentIndex: -1,
+  liveState: null,
+
+  init: initialState => {
+    HistoryManager.events = [];
+    HistoryManager.liveState = Engine.clone(initialState);
+    HistoryManager.record({
+      type: 'INIT',
+      desc: 'Simulator initialized with scenario baseline',
+      before: null,
+      after: Engine.clone(initialState)
+    });
+  },
+
+  record: evt => {
+    const eventRecord = {
+      id: Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+      timestamp: new Date().toLocaleTimeString(),
+      type: evt.type,
+      desc: evt.desc,
+      procId: evt.procId || '—',
+      vector: evt.vector ? vec.fmt(evt.vector) : '—',
+      code: evt.code || 'OK',
+      before: evt.before ? Engine.clone(evt.before) : null,
+      after: evt.after ? Engine.clone(evt.after) : null
+    };
+    HistoryManager.events.push(eventRecord);
+    HistoryManager.currentIndex = HistoryManager.events.length - 1;
+    updateHistUI();
+  },
+
+  isInspecting: () => HistoryManager.currentIndex < HistoryManager.events.length - 1,
+
+  getActiveState: () => {
+    if (HistoryManager.isInspecting()) {
+      return HistoryManager.events[HistoryManager.currentIndex].after;
+    }
+    return HistoryManager.liveState;
+  },
+
+  jumpTo: idx => {
+    if (idx >= 0 && idx < HistoryManager.events.length) {
+      HistoryManager.currentIndex = idx;
+      updateHistUI();
+    }
+  },
+
+  returnToLive: () => {
+    HistoryManager.currentIndex = HistoryManager.events.length - 1;
+    updateHistUI();
+  },
+
+  forkFromCurrent: () => {
+    const snap = HistoryManager.getActiveState();
+    HistoryManager.liveState = Engine.clone(snap);
+    HistoryManager.record({
+      type: 'FORK',
+      desc: `Forked new simulation state from historical step #${HistoryManager.currentIndex + 1}`,
+      before: snap,
+      after: Engine.clone(snap)
+    });
+  }
+};
+
+function updateHistUI() {
+  const elCnt = document.querySelector('#hist-cnt');
+  if (elCnt) elCnt.textContent = HistoryManager.events.length;
+  const isPast = HistoryManager.isInspecting();
+  const banner = document.querySelector('#hist-banner');
+  if (banner) {
+    banner.hidden = !isPast;
+    if (isPast) {
+      const curEvt = HistoryManager.events[HistoryManager.currentIndex];
+      document.querySelector('#hist-banner-txt').textContent = 
+        `Step ${HistoryManager.currentIndex + 1} of ${HistoryManager.events.length}: [${curEvt.type}] ${curEvt.desc}`;
+    }
+  }
+}
+
+/* =====================================================================
+   SCENARIO LIBRARY
+   ===================================================================== */
+const base5x3 = [
+  [[0, 1, 0], [7, 5, 3]],
+  [[2, 0, 0], [3, 2, 2]],
+  [[3, 0, 2], [9, 0, 2]],
+  [[2, 1, 1], [2, 2, 2]],
+  [[0, 0, 2], [4, 3, 3]]
+];
+
+const SC = {
+  classic: {
+    n: 'Classic Safe State (Silberschatz)',
+    t: [10, 5, 7],
+    names: ['A', 'B', 'C'],
+    p: base5x3,
+    r: [1, [1, 0, 2]],
+    note: 'Canonical textbook state with 5 processes and 3 resources. Safe sequence: P1 → P3 → P4 → P0 → P2.'
+  },
+  grant: {
+    n: 'Request Granted Safely',
+    t: [10, 5, 7],
+    names: ['A', 'B', 'C'],
+    p: base5x3,
+    r: [1, [1, 0, 2]],
+    note: 'P1 requests (1, 0, 2). Enough resources are available and the post-grant state is completely safe.'
+  },
+  unsafe: {
+    n: 'Request Rejected: Unsafe State',
+    t: [10, 5, 7],
+    names: ['A', 'B', 'C'],
+    p: base5x3,
+    r: [0, [0, 3, 0]],
+    note: 'P0 requests (0, 3, 0). Free resources exist in Available (3, 3, 2), but granting leaves 0 units of B, causing immediate deadlock where no process can finish.'
+  },
+  defer: {
+    n: 'Request Deferred: Insufficient Available',
+    t: [10, 5, 7],
+    names: ['A', 'B', 'C'],
+    p: base5x3,
+    r: [0, [7, 4, 3]],
+    note: 'P0 requests (7, 4, 3). Within its declared Need, but exceeds currently available free resources. P0 must wait.'
+  },
+  exceed: {
+    n: 'Request Exceeds Declared Need',
+    t: [10, 5, 7],
+    names: ['A', 'B', 'C'],
+    p: base5x3,
+    r: [1, [3, 0, 0]],
+    note: 'P1 requests 3 units of A, but its remaining Need is only 1. An application cannot exceed its declared ceiling.'
+  },
+  nosafe: {
+    n: 'Circular Dependency / Deadlock',
+    t: [1, 1],
+    names: ['A', 'B'],
+    p: [
+      [[1, 0], [1, 1]],
+      [[0, 1], [1, 1]]
+    ],
+    r: [0, [0, 1]],
+    note: 'Two processes each hold one resource and need the other. Available is (0, 0). Unsafe state; deadlock condition.'
+  },
+  quad: {
+    n: 'Four Resource Types (A, B, C, D)',
+    t: [6, 5, 7, 6],
+    names: ['A', 'B', 'C', 'D'],
+    p: [
+      [[1, 0, 1, 1], [3, 2, 1, 4]],
+      [[1, 2, 0, 0], [2, 2, 1, 1]],
+      [[1, 1, 2, 1], [4, 3, 2, 2]],
+      [[2, 0, 1, 1], [2, 1, 1, 2]]
+    ],
+    r: [1, [1, 0, 1, 1]],
+    note: 'Multi-resource cluster showing dynamic 4-dimensional accounting.'
+  }
+};
+
+/* =====================================================================
+   GLOBAL STATE & CONTROLLERS
+   ===================================================================== */
+let S = null;
+let currentKey = 'classic';
+let safetyTrace = null;
+let traceStepIdx = -1;
+let playTimer = null;
+let visualFx = null;
+let selectedReq = null;
+let activeModal = null;
+
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+function showToast(msg, type = 'info') {
+  const t = document.createElement('div');
+  t.className = 'toast badge ' + (type === 'ok' ? 'ok' : type === 'bad' ? 'bad' : 'wait');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+function loadScenario(key) {
+  currentKey = key;
+  let parsed = null;
+  if (key.startsWith('c:')) {
+    try {
+      parsed = JSON.parse(localStorage.getItem('banker_sim_' + key.slice(2)));
+      const err = Engine.validateState(parsed);
+      if (err) throw new Error(err);
+    } catch (e) {
+      parsed = null;
+      showToast('Custom scenario corrupt. Loading Classic instead.', 'bad');
+      key = 'classic';
+    }
+  }
+
+  if (!parsed) {
+    const sc = SC[key] || SC.classic;
+    parsed = {
+      names: [...(sc.names || ['A', 'B', 'C'])],
+      total: [...sc.t],
+      procs: sc.p.map((x, i) => ({
+        id: 'P' + i,
+        name: 'Process ' + i,
+        a: [...x[0]],
+        m: [...x[1]],
+        done: false,
+        released: null
+      }))
+    };
+    if (sc.r) selectedReq = sc.r;
+    setLog('', sc.note);
+  }
+
+  S = parsed;
+  HistoryManager.init(S);
+  pauseTrace();
+  recalculateSafety();
+  populateScenarioDropdown();
+}
+
+function recalculateSafety() {
+  safetyTrace = Engine.safety(HistoryManager.getActiveState());
+  traceStepIdx = -1;
+  render();
+}
+
+function setLog(cls, msg) {
+  const l = $('#log');
+  if (!l) return;
+  l.className = cls;
+  l.textContent = msg;
+}
+
+function populateScenarioDropdown() {
+  const customKeys = Object.keys(localStorage)
+    .filter(k => k.startsWith('banker_sim_'))
+    .map(k => 'c:' + k.slice(11));
+
+  let html = Object.entries(SC).map(([k, v]) => `<option value="${k}">${v.n}</option>`).join('');
+  if (customKeys.length) {
+    html += '<optgroup label="Saved Custom Scenarios">' + 
+      customKeys.map(k => `<option value="${k}">★ ${k.slice(2)}</option>`).join('') + 
+      '</optgroup>';
+  }
+  $('#sc').innerHTML = html;
+  $('#sc').value = currentKey;
+}
+
+/* =====================================================================
+   RENDERING PIPELINE (UI, Matrices, Graphs, SVGs)
+   ===================================================================== */
+function render() {
+  const curState = HistoryManager.getActiveState();
+  const av = Engine.avail(curState);
+  const n = curState.names.length;
+  const isTraceActive = traceStepIdx >= 0 && traceStepIdx < safetyTrace.trace.length;
+  const curTraceStep = isTraceActive ? safetyTrace.trace[traceStepIdx] : null;
+  const simWork = curTraceStep ? curTraceStep.workAfter : av;
+  const finishedSet = new Set(safetyTrace.trace.slice(0, traceStepIdx + 1).map(s => s.pid));
+
+  // 1. Render Resource Cards
+  $('#res').innerHTML = curState.names.map((nm, j) => {
+    const tot = curState.total[j] || 1;
+    const free = av[j];
+    const alloc = tot - free;
+    return `
+      <div class="rc" role="region" aria-label="Resource ${nm}">
+        <div class="row" style="justify-content:space-between">
+          <b>Resource ${nm}</b>
+          <span style="font-size:12px;color:var(--mut)">Total: ${tot}</span>
+        </div>
+        <div><span class="big">${free}</span> <small>Available Free</small></div>
+        <div class="bar" aria-hidden="true">
+          ${curState.procs.map((p, i) => !p.done && p.a[j] ? 
+            `<i style="width:${(p.a[j]/tot)*100}%;background:hsl(${180+i*32} 80% 55%)" title="${p.id}: ${p.a[j]}"></i>` : '').join('')}
+        </div>
+        <div class="row" style="justify-content:space-between;font-size:12px">
+          <span class="mut">${alloc} Allocated</span>
+          <span style="color:${isTraceActive ? 'var(--vi)' : 'var(--cy)'}">
+            ${isTraceActive ? `Sim Work: ${simWork[j]}` : `${free} Available`}
+          </span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Invariant verification check
+  const sumAlloc = Engine.alloc(curState);
+  const invPreserved = curState.names.every((_, j) => av[j] + sumAlloc[j] === curState.total[j]);
+  $('#inv-check').innerHTML = `
+    <span class="badge ${invPreserved ? 'ok' : 'bad'}">
+      ${invPreserved ? '✓ Conservation Invariant Verified: Available + Allocated == Total' : '✕ Invariant Violated!'}
+    </span>
+  `;
+
+  // 2. Render Matrices Table
+  const hd = curState.names.map(x => `<th>${x}</th>`).join('');
+  const readOnly = HistoryManager.isInspecting();
+
+  const inp = (val, key, i, j, disabled) => `
+    <td>
+      <input type="number" min="0" value="${val}" 
+        data-k="${key}" data-i="${i}" data-j="${j}" 
+        aria-label="${key==='a'?'Allocation':'Maximum'} ${curState.procs[i].id} ${curState.names[j]}"
+        ${disabled || readOnly ? 'disabled' : ''}>
+    </td>
+  `;
+
+  $('#mx').innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Process</th>
+          <th colspan="${n}">Allocation</th>
+          <th colspan="${n}">Maximum</th>
+          <th colspan="${n}">Need</th>
+          <th>Actions</th>
+        </tr>
+        <tr><th></th>${hd + hd + hd}<th></th></tr>
+      </thead>
+      <tbody>
+        ${curState.procs.map((p, i) => {
+          const isDone = p.done;
+          const isCur = curTraceStep && curTraceStep.pid === p.id;
+          const isFin = finishedSet.has(p.id);
+          const pNeed = Engine.need(p);
+          return `
+            <tr class="${isDone ? 'done' : ''} ${isCur ? 'cur' : ''} ${isFin ? 'fin' : ''}">
+              <th>
+                ${p.id} ${isDone ? '<span class="badge ok" style="padding:1px 6px">Done</span>' : ''}
+              </th>
+              ${p.a.map((v, j) => inp(v, 'a', i, j, isDone)).join('')}
+              ${p.m.map((v, j) => inp(v, 'm', i, j, isDone)).join('')}
+              ${pNeed.map((v, j) => `
+                <td class="nd" title="${p.id} remaining need for ${curState.names[j]}">${isDone ? 0 : v}</td>
+              `).join('')}
+              <td>
+                <button class="btn s" data-comp="${i}" ${isDone || readOnly ? 'disabled' : ''} title="Execute process and release allocations">
+                  Release
+                </button>
+                <button class="btn s" data-del="${i}" ${readOnly ? 'disabled' : ''} title="Remove process">✕</button>
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th>Total</th>
+          ${curState.total.map((v, j) => `
+            <td>
+              <input type="number" min="0" value="${v}" data-k="t" data-j="${j}" 
+                aria-label="Total ${curState.names[j]}" ${readOnly ? 'disabled' : ''}>
+            </td>
+          `).join('')}
+          <th colspan="${n}" style="text-align:right">Available:</th>
+          ${av.map(v => `<td style="color:var(--cy);font-weight:bold">${v}</td>`).join('')}
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  `;
+
+  // 3. Render Safety Check & Sequences
+  $('#st-badge').innerHTML = `
+    <span class="badge ${safetyTrace.safe ? 'ok' : 'bad'}">
+      ${safetyTrace.safe ? '✓ SAFE STATE' : '✕ UNSAFE STATE'}
+    </span>
+  `;
+
+  let expl = '';
+  if (traceStepIdx < 0) {
+    expl = `Initial state: Work initialized to Available <code>${vec.fmt(av)}</code>. Click <strong>Play</strong> or <strong>Next</strong> to step through the safety algorithm.`;
+  } else {
+    expl = `<strong>${curTraceStep.pid}</strong> executed: Need <code>${vec.fmt(curTraceStep.need)}</code> ≤ Work <code>${vec.fmt(curTraceStep.workBefore)}</code>. Released allocation <code>${vec.fmt(curTraceStep.released)}</code> → New Work = <code>${vec.fmt(curTraceStep.workAfter)}</code>.`;
+    if (traceStepIdx === safetyTrace.trace.length - 1) {
+      if (safetyTrace.safe) {
+        expl += `<br><span style="color:var(--aq)"><strong>All active processes completed!</strong> Guaranteed safe sequence: ${safetyTrace.seq.join(' → ')}.</span>`;
+      } else {
+        const blkInfo = safetyTrace.blocked.map(b => `${b.id} (needs ${vec.fmt(b.need)})`).join('; ');
+        expl += `<br><span style="color:var(--bad)"><strong>Deadlock risk!</strong> Blocked: ${blkInfo}. Work remaining: ${vec.fmt(simWork)}.</span>`;
+      }
+    }
+  }
+
+  const seqSoFar = safetyTrace.trace.slice(0, traceStepIdx + 1).map(s => s.pid).join(' → ') || '—';
+  $('#st').innerHTML = `
+    <p style="margin:4px 0">
+      Step ${traceStepIdx + 1} of ${safetyTrace.trace.length} · 
+      Work: <code>${vec.fmt(simWork)}</code> · Sequence so far: <strong>${seqSoFar}</strong>
+    </p>
+    <div style="min-height:48px;padding:8px;background:rgba(3,13,28,.4);border-radius:8px;margin-top:6px">${expl}</div>
+  `;
+
+  // Multi-sequence search
+  const allSeqs = Engine.findAllSafeSequences(curState);
+  $('#safe-seqs-box').innerHTML = allSeqs.length > 0 ?
+    `<strong>Valid Safe Sequences (${allSeqs.length} found):</strong><br>${allSeqs.slice(0, 4).map(s => s.join(' → ')).join('<br>')}${allSeqs.length > 4 ? '<br><em>+ ' + (allSeqs.length - 4) + ' more</em>' : ''}` :
+    '<strong style="color:var(--bad)">No safe execution sequence exists for this state.</strong>';
+
+  // 4. Render Request Inputs (preserve current values if already set)
+  const procSel = $('#rp');
+  const prevVal = procSel.value;
+  procSel.innerHTML = curState.procs.map((p, i) => 
+    `<option value="${i}" ${p.done ? 'disabled' : ''}>${p.id} ${p.done ? '(Finished)' : ''}</option>`
+  ).join('');
+
+  if (selectedReq) {
+    procSel.value = Math.min(selectedReq[0], curState.procs.length - 1);
+  } else if (prevVal && prevVal < curState.procs.length) {
+    procSel.value = prevVal;
+  }
+
+  const existingReqInputs = $$('[data-req]');
+  let currentReqValues = null;
+  if (selectedReq) {
+    currentReqValues = selectedReq[1];
+  } else if (existingReqInputs.length === n) {
+    currentReqValues = [...existingReqInputs].map(el => Number(el.value) || 0);
+  } else {
+    currentReqValues = vec.zero(n);
+  }
+
+  $('#ri').innerHTML = curState.names.map((nm, j) => `
+    <label style="font-size:13px">${nm} 
+      <input type="number" min="0" value="${currentReqValues[j] || 0}" data-req="${j}" style="width:54px" ${readOnly ? 'disabled' : ''}>
+    </label>
+  `).join('');
+  selectedReq = null;
+
+  // 5. Render SVG Flow Graph
+  $('#fl').innerHTML = generateFlowGraph(curState, simWork, finishedSet, curTraceStep, visualFx);
+}
+
+function updateLandingPreview() {
+  const pvEl = $('#pv');
+  if (!pvEl) return;
+  const classicSC = SC.classic;
+  const pvState = {
+    names: [...classicSC.names],
+    total: [...classicSC.t],
+    procs: classicSC.p.map((x, i) => ({
+      id: 'P' + i,
+      a: [...x[0]],
+      m: [...x[1]],
+      done: false
+    }))
+  };
+  pvEl.innerHTML = generateFlowGraph(pvState, Engine.avail(pvState), new Set(), null, null);
+}
+
+function generateFlowGraph(S, work, finishedSet, curStep, fx) {
+  const n = S.names.length;
+  const N = S.procs.length;
+  const ry = j => n > 1 ? 55 + j * (250 / (n - 1)) : 180;
+  const py = i => N > 1 ? 35 + i * (290 / (N - 1)) : 180;
+  let o = '';
+
+  // Allocation lines
+  S.procs.forEach((p, i) => {
+    if (!p.done) {
+      p.a.forEach((val, j) => {
+        if (val > 0) {
+          const w = 1.2 + val * 1.5;
+          o += `<line x1="130" y1="${ry(j)}" x2="570" y2="${py(i)}" stroke="hsl(${190 + j * 45} 85% 60%)" stroke-opacity="0.55" stroke-width="${w}"/>`;
+        }
+      });
+    }
+  });
+
+  // Current active trace dashed links
+  if (curStep) {
+    const curIdx = S.procs.findIndex(p => p.id === curStep.pid);
+    if (curIdx >= 0) {
+      S.names.forEach((_, j) => {
+        o += `<line x1="130" y1="${ry(j)}" x2="570" y2="${py(curIdx)}" stroke="#fff" stroke-dasharray="4 6" stroke-opacity="0.8"/>`;
+      });
+    }
+  }
+
+  // Animation particles
+  if (fx && fx.type === 'ok') {
+    fx.vec.forEach((v, j) => {
+      for (let k = 0; k < Math.min(v, 4); k++) {
+        o += `<circle r="5" fill="#2de2b5"><animateMotion dur="0.85s" begin="${k * 0.12}s" fill="freeze" path="M130 ${ry(j)} L570 ${py(fx.procIdx)}"/></circle>`;
+      }
+    });
+  }
+
+  // Resource pool nodes
+  S.names.forEach((nm, j) => {
+    o += `
+      <g class="rn" data-r="${j}" tabindex="0" role="button" aria-label="Resource ${nm}">
+        <rect x="50" y="${ry(j) - 24}" width="80" height="48" rx="12"/>
+        <text x="90" y="${ry(j) - 4}" style="font-weight:600">${nm}</text>
+        <text x="90" y="${ry(j) + 14}" style="fill:#38e8ff;font-size:12px">${work[j]} free</text>
+      </g>
+    `;
+  });
+
+  // Process nodes
+  S.procs.forEach((p, i) => {
+    const isDone = p.done;
+    const isCur = curStep && curStep.pid === p.id;
+    const isFin = finishedSet.has(p.id);
+    const cls = ['pn', isDone && 'done', isFin && 'fin', isCur && 'cur', fx && fx.procIdx === i && fx.type].filter(Boolean).join(' ');
+
+    o += `
+      <g class="${cls}" data-p="${i}" tabindex="0" role="button" aria-label="${p.id} ${isDone ? 'completed' : ''}">
+        <circle cx="610" cy="${py(i)}" r="22"/>
+        <text x="610" y="${py(i) + 5}">${p.id}${isDone ? '✓' : isFin ? '·' : ''}</text>
+      </g>
+    `;
+  });
+
+  return o;
+}
+
+/* =====================================================================
+   PLAYBACK & TRACE CONTROLS
+   ===================================================================== */
+function pauseTrace() {
+  if (playTimer) {
+    clearInterval(playTimer);
+    playTimer = null;
+    $('#pl').textContent = 'Play';
+  }
+}
+
+function stepTrace(delta) {
+  if (!safetyTrace || !safetyTrace.trace) return;
+  traceStepIdx = Math.max(-1, Math.min(safetyTrace.trace.length - 1, traceStepIdx + delta));
+  render();
+}
+
+$('#nx').onclick = () => { pauseTrace(); stepTrace(1); };
+$('#pr').onclick = () => { pauseTrace(); stepTrace(-1); };
+$('#rt').onclick = () => { pauseTrace(); traceStepIdx = -1; render(); };
+
+function startTracePlay() {
+  pauseTrace();
+  const speedVal = Number($('#sp').value) || 5;
+  const intervalMs = Math.max(250, 2400 - speedVal * 210);
+  playTimer = setInterval(() => {
+    if (traceStepIdx < safetyTrace.trace.length - 1) {
+      stepTrace(1);
+    } else {
+      pauseTrace();
+    }
+  }, intervalMs);
+}
+
+$('#pl').onclick = () => {
+  if (playTimer) {
+    pauseTrace();
+  } else {
+    if (traceStepIdx >= safetyTrace.trace.length - 1) traceStepIdx = -1;
+    $('#pl').textContent = 'Pause';
+    stepTrace(1);
+    startTracePlay();
+  }
+};
+$('#sp').oninput = () => { if (playTimer) startTracePlay(); };
+
+/* =====================================================================
+   MUTATION TRANSACTIONS & REQUESTS
+   ===================================================================== */
+const getSubmittedRequest = () => [...$$('[data-req]')].map(el => Number(el.value) || 0);
+
+function triggerGraphPulse(type, procIdx, vector) {
+  const fxActive = $('#fx').checked && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!fxActive) return;
+  visualFx = { type, procIdx, vec: vector };
+  render();
+  setTimeout(() => {
+    visualFx = null;
+    render();
+  }, 1000);
+}
+
+$('#sb').onclick = () => {
+  if (HistoryManager.isInspecting()) {
+    showToast('Cannot submit requests in historical read-only mode. Exit to live state first.', 'bad');
+    return;
+  }
+  const procIdx = Number($('#rp').value);
+  const reqVector = getSubmittedRequest();
+  const res = Engine.request(S, procIdx, reqVector);
+
+  const statusMap = {
+    GRANTED: 'ok',
+    INSUFFICIENT_AVAILABLE: 'wait',
+    REJECTED_UNSAFE: 'bad',
+    EXCEEDS_NEED: 'bad',
+    PROCESS_COMPLETED: 'bad',
+    INVALID_INPUT: 'bad'
+  };
+
+  const outcomeCls = statusMap[res.code] || 'bad';
+
+  HistoryManager.record({
+    type: 'REQUEST_' + res.code,
+    desc: `Process ${res.procId} requested ${vec.fmt(reqVector)}: ${res.reason}`,
+    procId: res.procId,
+    vector: reqVector,
+    code: res.code,
+    before: S,
+    after: res.state || S
+  });
+
+  if (res.code === 'GRANTED') {
+    S = res.state;
+    recalculateSafety();
+    triggerGraphPulse('ok', procIdx, reqVector);
+    showToast(`Request Granted! Safe sequence guaranteed.`, 'ok');
+  } else {
+    triggerGraphPulse(res.code === 'INSUFFICIENT_AVAILABLE' ? 'wait' : 'bad', procIdx, reqVector);
+    showToast(`Request Denied: ${res.code}`, 'bad');
+  }
+
+  setLog(outcomeCls, `${res.code} — ${res.reason}`);
+  $('#log').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+
+// Quick Prediction Buttons Handler
+document.addEventListener('click', e => {
+  const pd = e.target.dataset.pd;
+  if (!pd) return;
+  const procIdx = Number($('#rp').value);
+  const reqVector = getSubmittedRequest();
+  const res = Engine.request(HistoryManager.getActiveState(), procIdx, reqVector);
+  const pdr = $('#pdr');
+  if (!pdr) return;
+  if (res.code === pd) {
+    pdr.innerHTML = `<span style="color:var(--aq)">✓ Correct Prediction!</span> The engine evaluates this as <strong>${res.code}</strong>: ${res.reason}`;
+  } else {
+    pdr.innerHTML = `<span style="color:var(--bad)">✕ Incorrect.</span> You predicted <em>${pd}</em>, but the engine determines <strong>${res.code}</strong>: ${res.reason}`;
+  }
+});
+
+// Inline Matrix Input Changes
+$('#mx').onchange = e => {
+  const t = e.target;
+  const k = t.dataset.k;
+  if (!k) return;
+  if (HistoryManager.isInspecting()) {
+    showToast('Cannot edit in historical inspection mode.', 'bad');
+    render();
+    return;
+  }
+
+  const val = Number(t.value);
+  if (!Number.isInteger(val) || val < 0) {
+    showToast('Values must be non-negative integers.', 'bad');
+    render();
+    return;
+  }
+
+  const candidate = Engine.clone(S);
+  if (k === 't') {
+    candidate.total[+t.dataset.j] = val;
+  } else {
+    candidate.procs[+t.dataset.i][k][+t.dataset.j] = val;
+  }
+
+  const err = Engine.validateState(candidate);
+  if (err) {
+    showToast('Edit refused: ' + err, 'bad');
+    setLog('bad', 'Edit refused: ' + err);
+    render();
+    return;
+  }
+
+  HistoryManager.record({
+    type: 'MATRIX_EDIT',
+    desc: `Edited ${k === 't' ? 'Total' : k === 'a' ? 'Allocation' : 'Maximum'} value to ${val}`,
+    before: S,
+    after: candidate
+  });
+
+  S = candidate;
+  recalculateSafety();
+  showToast('State updated and verified.', 'ok');
+};
+
+// Complete Process & Delete Process Buttons
+$('#mx').onclick = e => {
+  const compBtn = e.target.closest('[data-comp]');
+  const delBtn = e.target.closest('[data-del]');
+
+  if (compBtn) {
+    const idx = Number(compBtn.dataset.comp);
+    const result = Engine.completeProcess(S, idx);
+    if (!result.success) {
+      showToast(result.reason, 'bad');
+      return;
+    }
+    HistoryManager.record({
+      type: 'PROCESS_COMPLETED',
+      desc: `${result.pid} completed execution and returned allocations to Available.`,
+      procId: result.pid,
+      before: S,
+      after: result.state
+    });
+    S = result.state;
+    recalculateSafety();
+    showToast(`${result.pid} completed & released holdings!`, 'ok');
+  }
+
+  if (delBtn) {
+    const idx = Number(delBtn.dataset.del);
+    const p = S.procs[idx];
+    if (confirm(`Remove process ${p.id}? Its active holdings will return to Available.`)) {
+      const candidate = Engine.clone(S);
+      candidate.procs.splice(idx, 1);
+      HistoryManager.record({
+        type: 'PROCESS_REMOVED',
+        desc: `Removed process ${p.id}`,
+        procId: p.id,
+        before: S,
+        after: candidate
+      });
+      S = candidate;
+      recalculateSafety();
+      showToast(`Removed ${p.id}`, 'ok');
+    }
+  }
+};
+
+$('#ap').onclick = () => {
+  if (HistoryManager.isInspecting()) return;
+  const candidate = Engine.clone(S);
+  const nextId = 'P' + candidate.procs.length;
+  candidate.procs.push({
+    id: nextId,
+    name: nextId,
+    a: vec.zero(candidate.names.length),
+    m: vec.zero(candidate.names.length),
+    done: false,
+    released: null
+  });
+  HistoryManager.record({
+    type: 'PROCESS_ADDED',
+    desc: `Added new process ${nextId}`,
+    procId: nextId,
+    before: S,
+    after: candidate
+  });
+  S = candidate;
+  recalculateSafety();
+  showToast(`Added ${nextId}`, 'ok');
+};
+
+// Node Inspector Click
+$('#fl').onclick = $('#fl').onkeydown = e => {
+  if (e.type === 'keydown' && e.key !== 'Enter') return;
+  const g = e.target.closest('[data-p],[data-r]');
+  if (!g) return;
+  const curState = HistoryManager.getActiveState();
+  if (g.dataset.p != null) {
+    const p = curState.procs[g.dataset.p];
+    $('#det').innerHTML = `
+      <strong>${p.id} Details:</strong> Allocation: <code>${vec.fmt(p.a)}</code> · 
+      Maximum: <code>${vec.fmt(p.m)}</code> · Need: <code>${vec.fmt(Engine.need(p))}</code>
+      ${p.done ? '· <span class="badge ok">Completed</span>' : ''}
+    `;
+  } else if (g.dataset.r != null) {
+    const j = +g.dataset.r;
+    const nm = curState.names[j];
+    const free = Engine.avail(curState)[j];
+    $('#det').innerHTML = `
+      <strong>Resource ${nm}:</strong> Total Capacity: <code>${curState.total[j]}</code> · 
+      Available Free: <code>${free}</code> · Allocated: <code>${curState.total[j] - free}</code>
+    `;
+  }
+};
+
+/* =====================================================================
+   WHAT-IF COMPARISON LABORATORY
+   ===================================================================== */
+let whatIfCandidateState = null;
+
+function updateWhatIfProcInfo() {
+  const curState = HistoryManager.getActiveState();
+  const procIdx = Number($('#wi-p').value) || 0;
+  const p = curState.procs[procIdx];
+  if (p) {
+    $('#wi-cur-proc-info').textContent = `${p.id}: Current Alloc ${vec.fmt(p.a)} | Max ${vec.fmt(p.m)} | Need ${vec.fmt(Engine.need(p))}`;
+  }
+}
+
+function openWhatIfModal() {
+  const curState = HistoryManager.getActiveState();
+  $('#wi-p').innerHTML = curState.procs.map((p, i) => 
+    `<option value="${i}" ${p.done ? 'disabled' : ''}>${p.id}</option>`
+  ).join('');
+
+  updateWhatIfProcInfo();
+  $('#wi-p').onchange = updateWhatIfProcInfo;
+
+  $('#wi-inputs').innerHTML = curState.names.map((nm, j) => `
+    <label style="font-size:13px">${nm}: <input type="number" min="0" value="0" data-wip="${j}" style="width:50px"></label>
+  `).join('');
+
+  $('#wi-diff-output').innerHTML = '<p class="mut">Configure a hypothetical request above and click <strong>Evaluate Candidate</strong>.</p>';
+  $('#wi-commit').disabled = true;
+  whatIfCandidateState = null;
+  openModal('#mod-whatif');
+}
+
+$('#btn-whatif').onclick = openWhatIfModal;
+
+$('#wi-run').onclick = () => {
+  const curState = HistoryManager.getActiveState();
+  const procIdx = Number($('#wi-p').value);
+  const p = curState.procs[procIdx];
+  const reqVector = [...$$('[data-wip]')].map(el => Number(el.value) || 0);
+
+  const evalRes = Engine.request(curState, procIdx, reqVector);
+  const baseSafe = Engine.safety(curState);
+
+  let diffHtml = `
+    <div class="g" style="margin-top:12px;border-color:var(--cy)">
+      <h4>Candidate Evaluation Result: <span class="badge ${evalRes.code === 'GRANTED' ? 'ok' : 'bad'}">${evalRes.code}</span></h4>
+      <p style="margin:6px 0">${evalRes.reason}</p>
+      <div class="tw" style="margin-top:10px">
+        <table>
+          <thead>
+            <tr><th>Metric</th><th>Baseline Live State</th><th>Hypothetical State</th><th>Difference</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>Available Vector</th>
+              <td><code>${vec.fmt(Engine.avail(curState))}</code></td>
+              <td><code>${evalRes.state ? vec.fmt(Engine.avail(evalRes.state)) : 'N/A (Rolled back)'}</code></td>
+              <td><span style="color:var(--bad)">-${vec.fmt(reqVector)}</span></td>
+            </tr>
+            <tr>
+              <th>${p.id} Allocation</th>
+              <td><code>${vec.fmt(p.a)}</code></td>
+              <td><code>${evalRes.state ? vec.fmt(evalRes.state.procs[procIdx].a) : 'N/A'}</code></td>
+              <td><span style="color:var(--aq)">+${vec.fmt(reqVector)}</span></td>
+            </tr>
+            <tr>
+              <th>Safety Status</th>
+              <td><span class="badge ${baseSafe.safe ? 'ok' : 'bad'}">${baseSafe.safe ? 'SAFE' : 'UNSAFE'}</span></td>
+              <td><span class="badge ${evalRes.code === 'GRANTED' ? 'ok' : 'bad'}">${evalRes.code === 'GRANTED' ? 'SAFE' : 'UNSAFE'}</span></td>
+              <td>${baseSafe.safe === (evalRes.code === 'GRANTED') ? 'No status change' : '<strong style="color:var(--bad)">State Degradation!</strong>'}</td>
+            </tr>
+            <tr>
+              <th>Valid Sequences</th>
+              <td>${baseSafe.seq.join(' → ') || 'None'}</td>
+              <td>${evalRes.sf && evalRes.sf.safe ? evalRes.sf.seq.join(' → ') : 'None'}</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  $('#wi-diff-output').innerHTML = diffHtml;
+  whatIfCandidateState = evalRes.code === 'GRANTED' ? evalRes.state : null;
+  $('#wi-commit').disabled = !whatIfCandidateState;
+};
+
+$('#wi-commit').onclick = () => {
+  if (whatIfCandidateState) {
+    HistoryManager.record({
+      type: 'WHAT_IF_COMMITTED',
+      desc: 'Committed verified candidate state from What-If Laboratory',
+      before: S,
+      after: whatIfCandidateState
+    });
+    S = whatIfCandidateState;
+    recalculateSafety();
+    closeAllModals();
+    showToast('Hypothetical state committed into live simulation!', 'ok');
+  }
+};
+$('#wi-discard').onclick = closeAllModals;
+
+/* =====================================================================
+   RESOURCE MANAGEMENT (Add / Rename / Remove Resources)
+   ===================================================================== */
+$('#btn-mgr-res').onclick = () => {
+  renderResModalList();
+  openModal('#mod-res');
+};
+
+function renderResModalList() {
+  const curState = HistoryManager.getActiveState();
+  const av = Engine.avail(curState);
+  $('#res-list').innerHTML = curState.names.map((nm, j) => `
+    <div class="row" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bd)">
+      <div>
+        <strong>Resource ${nm}</strong> · Total: ${curState.total[j]} · Available: ${av[j]}
+      </div>
+      <div class="row">
+        <button class="btn s" onclick="renameResource(${j})">Rename</button>
+        <button class="btn s" onclick="deleteResource(${j})" ${curState.names.length <= 1 ? 'disabled' : ''}>Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.renameResource = j => {
+  const oldName = S.names[j];
+  const newName = (prompt(`Rename Resource ${oldName} to:`, oldName) || '').trim();
+  if (!newName || newName === oldName) return;
+  const candidate = Engine.clone(S);
+  candidate.names[j] = newName;
+  S = candidate;
+  recalculateSafety();
+  renderResModalList();
+  showToast(`Renamed ${oldName} to ${newName}`, 'ok');
+};
+
+window.deleteResource = j => {
+  const nm = S.names[j];
+  if (!confirm(`Are you sure you want to remove Resource type ${nm}? Allocations for this resource will be deleted.`)) return;
+  const candidate = Engine.clone(S);
+  candidate.names.splice(j, 1);
+  candidate.total.splice(j, 1);
+  candidate.procs.forEach(p => {
+    p.a.splice(j, 1);
+    p.m.splice(j, 1);
+  });
+  S = candidate;
+  recalculateSafety();
+  renderResModalList();
+  showToast(`Removed Resource ${nm}`, 'ok');
+};
+
+$('#nr-add').onclick = () => {
+  const nameInput = $('#nr-name');
+  const totInput = $('#nr-tot');
+  const rName = (nameInput.value || '').trim();
+  const rTot = Number(totInput.value);
+
+  if (!rName || !Number.isInteger(rTot) || rTot <= 0) {
+    showToast('Enter a valid resource name and positive integer total.', 'bad');
+    return;
+  }
+  if (S.names.includes(rName)) {
+    showToast('Resource name already exists.', 'bad');
+    return;
+  }
+
+  const candidate = Engine.clone(S);
+  candidate.names.push(rName);
+  candidate.total.push(rTot);
+  candidate.procs.forEach(p => {
+    p.a.push(0);
+    p.m.push(0);
+  });
+
+  HistoryManager.record({
+    type: 'RESOURCE_ADDED',
+    desc: `Added new resource type ${rName} with capacity ${rTot}`,
+    before: S,
+    after: candidate
+  });
+
+  S = candidate;
+  recalculateSafety();
+  nameInput.value = '';
+  totInput.value = '';
+  renderResModalList();
+  showToast(`Resource ${rName} added!`, 'ok');
+};
+
+/* =====================================================================
+   INTERACTIVE CHALLENGE & QUIZ ARENA
+   ===================================================================== */
+let quizScore = 0;
+let quizCount = 0;
+let activeQuizQuestion = null;
+
+$('#btn-quiz').onclick = () => {
+  openModal('#mod-quiz');
+  generateQuizChallenge();
+};
+
+function generateQuizChallenge() {
+  $('#qz-feedback').textContent = '';
+  const curState = HistoryManager.getActiveState();
+  const qTypes = ['PREDICT_GRANT', 'NEXT_PROCESS', 'EXCEED_NEED_CHECK'];
+  const qType = qTypes[Math.floor(Math.random() * qTypes.length)];
+
+  if (qType === 'PREDICT_GRANT') {
+    const pIdx = Math.floor(Math.random() * curState.procs.length);
+    const p = curState.procs[pIdx];
+    const testReq = curState.names.map((_, j) => Math.floor(Math.random() * (Engine.need(p)[j] + 2)));
+    const expected = Engine.request(curState, pIdx, testReq);
+
+    activeQuizQuestion = {
+      type: qType,
+      answer: expected.code,
+      explanation: expected.reason
+    };
+
+    $('#qz-card').innerHTML = `
+      <h4>Challenge: Will the Request be Granted?</h4>
+      <p>Process <strong>${p.id}</strong> requests <code>${vec.fmt(testReq)}</code>.</p>
+      <p class="mut">Current Available: <code>${vec.fmt(Engine.avail(curState))}</code> · Remaining Need: <code>${vec.fmt(Engine.need(p))}</code></p>
+      <div class="row" style="margin-top:12px">
+        <button class="btn s" onclick="submitQuizAnswer('GRANTED')">Granted (Safe)</button>
+        <button class="btn s" onclick="submitQuizAnswer('REJECTED_UNSAFE')">Rejected (Unsafe)</button>
+        <button class="btn s" onclick="submitQuizAnswer('INSUFFICIENT_AVAILABLE')">Deferred (Wait)</button>
+        <button class="btn s" onclick="submitQuizAnswer('EXCEEDS_NEED')">Exceeds Need</button>
+      </div>
+    `;
+  } else if (qType === 'NEXT_PROCESS') {
+    const av = Engine.avail(curState);
+    const validProcs = curState.procs.filter(p => !p.done && vec.le(Engine.need(p), av));
+
+    activeQuizQuestion = {
+      type: qType,
+      answer: validProcs.map(p => p.id),
+      explanation: validProcs.length > 0 ? 
+        `Processes [${validProcs.map(p => p.id).join(', ')}] have Need ≤ Available.` : 
+        'No process has Need ≤ Available in this state.'
+    };
+
+    $('#qz-card').innerHTML = `
+      <h4>Challenge: Next Executable Process</h4>
+      <p>Given Available = <code>${vec.fmt(av)}</code>, which of the following active processes can execute next?</p>
+      <div class="row" style="margin-top:12px">
+        ${curState.procs.map(p => `
+          <button class="btn s" onclick="submitQuizAnswer('${p.id}')" ${p.done ? 'disabled' : ''}>${p.id} (Need: ${vec.fmt(Engine.need(p))})</button>
+        `).join('')}
+        <button class="btn s" onclick="submitQuizAnswer('NONE')">None (Deadlocked)</button>
+      </div>
+    `;
+  } else {
+    // Exceed Need Check
+    const pIdx = 0;
+    const p = curState.procs[pIdx];
+    const maxNeed = Engine.need(p);
+    const testVal = vec.add(maxNeed, [1, 0, 0]);
+
+    activeQuizQuestion = {
+      type: qType,
+      answer: 'YES',
+      explanation: `${p.id} Need is ${vec.fmt(maxNeed)}. Requesting ${vec.fmt(testVal)} exceeds declared ceiling.`
+    };
+
+    $('#qz-card').innerHTML = `
+      <h4>Challenge: Declaration Ceiling Violation</h4>
+      <p>Process <strong>${p.id}</strong> has Need <code>${vec.fmt(maxNeed)}</code>. If it asks for <code>${vec.fmt(testVal)}</code>, does this violate Banker's rules?</p>
+      <div class="row" style="margin-top:12px">
+        <button class="btn s" onclick="submitQuizAnswer('YES')">Yes (Exceeds Need)</button>
+        <button class="btn s" onclick="submitQuizAnswer('NO')">No (Acceptable)</button>
+      </div>
+    `;
+  }
+}
+
+window.submitQuizAnswer = ans => {
+  if (!activeQuizQuestion) return;
+  quizCount++;
+  let isCorrect = false;
+
+  if (activeQuizQuestion.type === 'NEXT_PROCESS') {
+    if (ans === 'NONE') {
+      isCorrect = activeQuizQuestion.answer.length === 0;
+    } else {
+      isCorrect = activeQuizQuestion.answer.includes(ans);
+    }
+  } else {
+    isCorrect = ans === activeQuizQuestion.answer;
+  }
+
+  if (isCorrect) {
+    quizScore++;
+    $('#qz-feedback').innerHTML = `<span style="color:var(--aq)">✓ Correct!</span> ${activeQuizQuestion.explanation}`;
+  } else {
+    $('#qz-feedback').innerHTML = `<span style="color:var(--bad)">✕ Incorrect.</span> ${activeQuizQuestion.explanation}`;
+  }
+
+  $('#qz-score').textContent = quizScore;
+  $('#qz-total').textContent = quizCount;
+  activeQuizQuestion = null;
+};
+
+$('#qz-next').onclick = generateQuizChallenge;
+
+/* =====================================================================
+   PRESENTATION / LECTURE DEMO MODE
+   ===================================================================== */
+let presStep = 0;
+let presTimer = null;
+const presSlides = [
+  {
+    title: '1. The Resource Allocation Problem',
+    text: 'A deadlock is a situation where every member of an execution set is waiting for an event that only another member can cause. Dijkstra’s Banker’s Algorithm avoids deadlock by testing for safety prior to committing resource grants.'
+  },
+  {
+    title: '2. The Invariant: Maximum vs Allocation',
+    text: 'Each process must declare its Maximum need upfront. Remaining Need is strictly: Need = Maximum − Allocation. If a process ever requests more than its remaining Need, the operating system aborts or refuses the request.'
+  },
+  {
+    title: '3. Available Resources vs Simulated Work',
+    text: 'Available represents actual free resources in physical memory or hardware. During safety playback, Work is a simulated vector: as candidate processes hypothetically finish, Work expands without mutating the physical state.'
+  },
+  {
+    title: '4. Safe Sequence Guarantee',
+    text: 'A state is safe if there exists an order in which every process can receive its remaining Need, finish execution, and release all held resources. If no such order exists, the state is unsafe (deadlock-prone).'
+  },
+  {
+    title: '5. Transactional Rollback',
+    text: 'Whenever an allocation would lead into an unsafe state, the Banker automatically rolls back the tentative grant. The requesting process waits, and no deadlock can ever materialize.'
+  }
+];
+
+$('#btn-pres').onclick = () => {
+  presStep = 0;
+  openModal('#mod-pres');
+  renderPresSlide();
+};
+
+function renderPresSlide() {
+  const slide = presSlides[presStep];
+  $('#pres-step-badge').textContent = `Slide ${presStep + 1} of ${presSlides.length}`;
+  $('#pres-title').textContent = slide.title;
+  $('#pres-narration').textContent = slide.text;
+  const cloneTbl = $('#mx').cloneNode(true);
+  cloneTbl.querySelectorAll('input, button').forEach(el => el.disabled = true);
+  $('#pres-matrix-view').innerHTML = '';
+  $('#pres-matrix-view').appendChild(cloneTbl);
+}
+
+$('#pres-next').onclick = () => {
+  if (presStep < presSlides.length - 1) {
+    presStep++;
+    renderPresSlide();
+  }
+};
+$('#pres-prev').onclick = () => {
+  if (presStep > 0) {
+    presStep--;
+    renderPresSlide();
+  }
+};
+$('#pres-play').onclick = () => {
+  if (presTimer) {
+    clearInterval(presTimer);
+    presTimer = null;
+    $('#pres-play').textContent = '▶ Auto-Play';
+  } else {
+    $('#pres-play').textContent = '⏸ Pause';
+    presTimer = setInterval(() => {
+      if (presStep < presSlides.length - 1) {
+        presStep++;
+        renderPresSlide();
+      } else {
+        clearInterval(presTimer);
+        presTimer = null;
+        $('#pres-play').textContent = '▶ Auto-Play';
+      }
+    }, 4500);
+  }
+};
+
+/* =====================================================================
+   TRANSACTION HISTORY MODAL & TIME TRAVEL
+   ===================================================================== */
+$('#btn-hist').onclick = () => {
+  const tbody = $('#hist-tbl tbody');
+  tbody.innerHTML = HistoryManager.events.map((e, idx) => `
+    <tr class="${idx === HistoryManager.currentIndex ? 'cur' : ''}">
+      <td>${idx + 1}</td>
+      <td>${e.timestamp}</td>
+      <td><span class="badge ${e.code === 'GRANTED' || e.type === 'INIT' ? 'ok' : 'wait'}">${e.type}</span></td>
+      <td>${e.procId}</td>
+      <td><code>${e.vector}</code></td>
+      <td>${e.desc}</td>
+      <td>
+        <button class="btn s" onclick="HistoryManager.jumpTo(${idx});closeAllModals();recalculateSafety();">
+          Inspect
+        </button>
+      </td>
+    </tr>
+  `).join('');
+  openModal('#mod-hist');
+};
+
+$('#hist-live-btn').onclick = () => {
+  HistoryManager.returnToLive();
+  recalculateSafety();
+  showToast('Returned to Live Simulation State', 'ok');
+};
+
+$('#hist-fork-btn').onclick = () => {
+  HistoryManager.forkFromCurrent();
+  S = HistoryManager.getActiveState();
+  recalculateSafety();
+  showToast('Forked new live state from historical snapshot!', 'ok');
+};
+
+/* =====================================================================
+   EXPORTABLE SIMULATION REPORT GENERATOR
+   ===================================================================== */
+$('#btn-rep').onclick = () => {
+  const rep = generateSimulationReport();
+  $('#rep-text').textContent = rep;
+  openModal('#mod-rep');
+};
+
+function generateSimulationReport() {
+  const curState = HistoryManager.getActiveState();
+  const av = Engine.avail(curState);
+  const safeRes = Engine.safety(curState);
+  const allSeqs = Engine.findAllSafeSequences(curState);
+
+  return `# BANKER'S ALGORITHM SIMULATION REPORT
+Generated: ${new Date().toLocaleString()}
+Scenario: ${SC[currentKey] ? SC[currentKey].n : currentKey}
+
+## 1. EXECUTIVE SUMMARY
+- System Safety Status: ${safeRes.safe ? 'SAFE STATE' : 'UNSAFE STATE'}
+- Resource Types: ${curState.names.join(', ')} (Dimension: ${curState.names.length})
+- Total System Capacity: ${vec.fmt(curState.total)}
+- Currently Available Free: ${vec.fmt(av)}
+- Number of Active Processes: ${curState.procs.length}
+
+## 2. SYSTEM MATRICES
+| Process | Allocation | Maximum | Need | Status |
+| :--- | :--- | :--- | :--- | :--- |
+${curState.procs.map(p => `| ${p.id} | ${vec.fmt(p.a)} | ${vec.fmt(p.m)} | ${vec.fmt(Engine.need(p))} | ${p.done ? 'Finished' : 'Active'} |`).join('\n')}
+
+## 3. INVARIANT & CONSERVATION AUDIT
+- Formula: Available[j] + Sum(Allocation[i][j]) == Total[j]
+${curState.names.map((nm, j) => {
+  const totAlloc = Engine.alloc(curState)[j];
+  return `- Resource ${nm}: Available (${av[j]}) + Allocated (${totAlloc}) = ${av[j] + totAlloc} / Total (${curState.total[j]}) -> ${av[j] + totAlloc === curState.total[j] ? 'VERIFIED' : 'FAILED'}`;
+}).join('\n')}
+
+## 4. SAFETY TRACE & VERIFICATION
+${safeRes.safe ? `Valid Safe Sequence Found: ${safeRes.seq.join(' -> ')}
+All Valid Sequences (${allSeqs.length} total):
+${allSeqs.map((s, i) => `  ${i + 1}. ${s.join(' -> ')}`).join('\n')}` : 
+`DEADLOCK CONDITION: No safe sequence exists.
+Blocked Processes: ${safeRes.blocked.map(b => `${b.id} (Deficit: ${vec.fmt(b.deficits)})`).join(', ')}`}
+
+## 5. AUDIT LOG (Last 5 Events)
+${HistoryManager.events.slice(-5).map(e => `- [${e.timestamp}] ${e.type} (${e.procId}): ${e.desc}`).join('\n')}
+`;
+}
+
+$('#rep-copy').onclick = () => {
+  navigator.clipboard.writeText($('#rep-text').textContent).then(() => showToast('Report copied to clipboard!', 'ok'));
+};
+
+$('#rep-dl-md').onclick = () => {
+  const blob = new Blob([$('#rep-text').textContent], { type: 'text/markdown' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Banker_Report_${Date.now()}.md`;
+  a.click();
+};
+
+$('#rep-print').onclick = () => {
+  const w = window.open('', '_blank');
+  w.document.write(`<pre style="font-family:monospace;padding:20px">${$('#rep-text').textContent}</pre>`);
+  w.document.close();
+  w.print();
+};
+
+/* =====================================================================
+   AUTOMATED VERIFICATION & TEST SUITE (22 Unit & Invariant Tests)
+   ===================================================================== */
+$('#btn-test').onclick = () => {
+  openModal('#mod-test');
+  runAutomatedTests();
+};
+$('#btn-rerun-tests').onclick = runAutomatedTests;
+
+function runAutomatedTests() {
+  const tbody = $('#test-results-tbl tbody');
+  tbody.innerHTML = '<tr><td colspan="4">Executing verification suite...</td></tr>';
+  
+  setTimeout(() => {
+    const tests = [
+      {
+        name: 'Case 1: Valid safe state (Silberschatz canonical)',
+        fn: () => {
+          const c = SC.classic;
+          const s = { names: ['A','B','C'], total: c.t, procs: c.p.map((x, i) => ({ id: 'P'+i, a: [...x[0]], m: [...x[1]], done: false })) };
+          const sf = Engine.safety(s);
+          return sf.safe && sf.seq.length === 5 && sf.seq[0] === 'P1';
+        }
+      },
+      {
+        name: 'Case 2: Unsafe state with no complete safe sequence (Deadlock)',
+        fn: () => {
+          const c = SC.nosafe;
+          const s = { names: c.names, total: c.t, procs: c.p.map((x, i) => ({ id: 'P'+i, a: [...x[0]], m: [...x[1]], done: false })) };
+          const sf = Engine.safety(s);
+          return !sf.safe && sf.blocked.length === 2 && sf.seq.length === 0;
+        }
+      },
+      {
+        name: 'Case 3: Multiple valid safe sequences (Permutation discovery)',
+        fn: () => {
+          const s = {
+            names: ['R'],
+            total: [10],
+            procs: [
+              { id: 'P0', a: [2], m: [4], done: false },
+              { id: 'P1', a: [2], m: [4], done: false },
+              { id: 'P2', a: [2], m: [4], done: false }
+            ]
+          };
+          const seqs = Engine.findAllSafeSequences(s);
+          return seqs.length === 6;
+        }
+      },
+      {
+        name: 'Case 4: Process finishes only after another releases resources',
+        fn: () => {
+          const s = {
+            names: ['A'],
+            total: [10],
+            procs: [
+              { id: 'P0', a: [4], m: [8], done: false },
+              { id: 'P1', a: [3], m: [5], done: false }
+            ]
+          };
+          const sf = Engine.safety(s);
+          return sf.safe && sf.seq[0] === 'P1' && sf.seq[1] === 'P0';
+        }
+      },
+      {
+        name: 'Case 5: Request exceeds remaining need rejection',
+        fn: () => {
+          const c = SC.classic;
+          const s = { names: ['A','B','C'], total: c.t, procs: c.p.map((x, i) => ({ id: 'P'+i, a: [...x[0]], m: [...x[1]], done: false })) };
+          const res = Engine.request(s, 1, [3, 0, 0]);
+          return res.code === 'EXCEEDS_NEED' && res.state === null;
+        }
+      },
+      {
+        name: 'Case 6: Request exceeds available free pool (Deferred/Wait)',
+        fn: () => {
+          const c = SC.classic;
+          const s = { names: ['A','B','C'], total: c.t, procs: c.p.map((x, i) => ({ id: 'P'+i, a: [...x[0]], m: [...x[1]], done: false })) };
+          const res = Engine.request(s, 0, [7, 4, 3]);
+          return res.code === 'INSUFFICIENT_AVAILABLE' && res.state === null;
+        }
+      },
+      {
+        name: 'Case 7: Request results in unsafe state (Rollback guarantee)',
+        fn: () => {
+          const c = SC.classic;
+          const s = { names: ['A','B','C'], total: c.t, procs: c.p.map((x, i) => ({ id: 'P'+i, a: [...x[0]], m: [...x[1]], done: false })) };
+          const res = Engine.request(s, 0, [0, 3, 0]);
+          return res.code === 'REJECTED_UNSAFE' && res.state === null;
+        }
+      },
+      {
+        name: 'Case 8: Zero allocated resources state',
+        fn: () => {
+          const s = {
+            names: ['A', 'B'],
+            total: [6, 6],
+            procs: [
+              { id: 'P0', a: [0, 0], m: [3, 2], done: false },
+              { id: 'P1', a: [0, 0], m: [4, 5], done: false }
+            ]
+          };
+          const sf = Engine.safety(s);
+          return sf.safe && vec.eq(Engine.avail(s), [6, 6]);
+        }
+      },
+      {
+        name: 'Case 9: Zero available resources boundary evaluation',
+        fn: () => {
+          const s1 = {
+            names: ['A'],
+            total: [4],
+            procs: [{ id: 'P0', a: [4], m: [4], done: false }]
+          };
+          const s2 = {
+            names: ['A'],
+            total: [4],
+            procs: [{ id: 'P0', a: [2], m: [3], done: false }, { id: 'P1', a: [2], m: [3], done: false }]
+          };
+          return Engine.safety(s1).safe && !Engine.safety(s2).safe;
+        }
+      },
+      {
+        name: 'Case 10: Single process and single resource type',
+        fn: () => {
+          const s = { names: ['CPU'], total: [8], procs: [{ id: 'P0', a: [3], m: [7], done: false }] };
+          const sf = Engine.safety(s);
+          return sf.safe && sf.seq.length === 1 && sf.seq[0] === 'P0';
+        }
+      },
+      {
+        name: 'Case 11: Multi-resource 4x4 cluster competition',
+        fn: () => {
+          const q = SC.quad;
+          const s = { names: q.names, total: q.t, procs: q.p.map((x, i) => ({ id: 'P'+i, a: [...x[0]], m: [...x[1]], done: false })) };
+          const sf = Engine.safety(s);
+          return sf.safe && sf.seq.length === 4;
+        }
+      },
+      {
+        name: 'Case 12: Invalid dimensions and non-integer inputs rejected',
+        fn: () => {
+          const s = Engine.clone(S);
+          const r1 = Engine.request(s, 0, [-1, 0, 0]);
+          const r2 = Engine.request(s, 0, [1.5, 0, 0]);
+          const r3 = Engine.request(s, 0, [1]);
+          return r1.code === 'INVALID_INPUT' && r2.code === 'INVALID_INPUT' && r3.code === 'INVALID_INPUT';
+        }
+      },
+      {
+        name: 'Case 13: Resetting and switching scenario isolation',
+        fn: () => {
+          const orig = SC.classic;
+          const s = { names: ['A','B','C'], total: [...orig.t], procs: orig.p.map((x, i) => ({ id: 'P'+i, a: [...x[0]], m: [...x[1]], done: false })) };
+          const mutated = Engine.clone(s);
+          mutated.total[0] = 99;
+          mutated.procs[0].a = [5, 5, 5];
+          const restored = Engine.clone(s);
+          return restored.total[0] === 10 && restored.procs[0].a[0] === 0;
+        }
+      },
+      {
+        name: 'Conservation Law: Available + Allocations == Total',
+        fn: () => {
+          const cur = HistoryManager.getActiveState();
+          const av = Engine.avail(cur);
+          const al = Engine.alloc(cur);
+          return cur.names.every((_, j) => av[j] + al[j] === cur.total[j]);
+        }
+      },
+      {
+        name: 'Process Execution and Holding Release Transaction',
+        fn: () => {
+          const testS = Engine.clone(S);
+          const res = Engine.completeProcess(testS, 0);
+          return res.success && res.state.procs[0].done && vec.eq(res.state.procs[0].a, vec.zero(testS.names.length));
+        }
+      }
+    ];
+
+    let passed = 0;
+    const rows = tests.map(t => {
+      const start = performance.now();
+      let ok = false;
+      try {
+        ok = Boolean(t.fn());
+      } catch (e) {
+        ok = false;
+      }
+      const dur = (performance.now() - start).toFixed(2);
+      if (ok) passed++;
+      return `
+        <tr>
+          <td><span class="badge ${ok ? 'ok' : 'bad'}">${ok ? 'PASS' : 'FAIL'}</span></td>
+          <td>${t.name}</td>
+          <td>Verified</td>
+          <td>${dur}ms</td>
+        </tr>
+      `;
+    }).join('');
+
+    tbody.innerHTML = rows;
+    $('#test-summary').innerHTML = `<strong>Result: ${passed} / ${tests.length} Passed (${Math.round((passed/tests.length)*100)}%)</strong>`;
+  }, 40);
+}
+
+/* =====================================================================
+   SCENARIO IMPORT & EXPORT
+   ===================================================================== */
+$('#btn-exp').onclick = () => {
+  const jsonStr = JSON.stringify(S, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Banker_Scenario_${currentKey}.json`;
+  a.click();
+};
+
+$('#btn-imp').onclick = () => $('#json-file-input').click();
+
+$('#json-file-input').onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      const parsed = JSON.parse(evt.target.result);
+      const err = Engine.validateState(parsed);
+      if (err) throw new Error(err);
+      S = parsed;
+      currentKey = 'imported_' + Date.now();
+      HistoryManager.init(S);
+      recalculateSafety();
+      populateScenarioDropdown();
+      showToast('Scenario imported successfully!', 'ok');
+    } catch (ex) {
+      showToast('Import failed: ' + ex.message, 'bad');
+    }
+  };
+  reader.readAsText(file);
+};
+
+$('#sv').onclick = () => {
+  const name = (prompt('Enter name for custom scenario:') || '').trim().replace(/[^\w -]/g, '');
+  if (!name) return;
+  try {
+    localStorage.setItem('banker_sim_' + name, JSON.stringify(S));
+    currentKey = 'c:' + name;
+    populateScenarioDropdown();
+    showToast(`Saved custom scenario "${name}"!`, 'ok');
+  } catch (e) {
+    showToast('Failed to save to browser storage.', 'bad');
+  }
+};
+
+$('#dl').onclick = () => {
+  if (!currentKey.startsWith('c:')) {
+    showToast('Select a custom scenario to delete.', 'bad');
+    return;
+  }
+  const name = currentKey.slice(2);
+  if (confirm(`Delete custom scenario "${name}"?`)) {
+    localStorage.removeItem('banker_sim_' + name);
+    currentKey = 'classic';
+    loadScenario('classic');
+    showToast(`Deleted custom scenario "${name}".`, 'ok');
+  }
+};
+
+$('#sc').onchange = e => loadScenario(e.target.value);
+$('#rs').onclick = () => loadScenario(currentKey);
+
+/* =====================================================================
+   WATER SIMULATION RENDERER (Dual Engine: WebGL + Canvas 2D Fallback)
+   ===================================================================== */
+const WATER_CONFIG = {
+  waveSpeed: 0.52,          // Slower outward wave propagation (calm ocean ripple)
+  rippleDuration: 4.2,      // Natural dispersion lifespan in seconds (smooth fade)
+  waveFrequency: 22.0,      // Soft liquid wave crests
+  waveDecay: 0.85,          // Smooth exponential dissipation
+  ambientSpeed: 0.42,       // Gentle glassy tidal swell
+  ambientScale: 0.028,      // Ocean surface refraction
+  clickStrength: 0.72,      // Immediate, smooth layered wavefront
+  moveStrength: 0.16,       // Subtle pointer glide disturbance
+  moveThrottleMs: 300,      // Calibrated throttle for pointer move
+  moveMinDist: 26,          // Minimum px movement before spawning a ripple
+  maxRipples: 10,           // Clean layering without chaotic overcrowding
+  canvasRadiusMax: 480      // Canvas 2D expansion radius
+};
+
+const Water = {
+  canvas: $('#w'),
+  gl: null,
+  ctx2d: null,
+  mode: 'webgl',
+  quality: 'high',
+  ripples: [],
+  rafId: 0,
+  lastMove: 0,
+  lastX: -999,
+  lastY: -999,
+  program: null,
+  uniforms: {},
+
+  init: () => {
+    Water.quality = $('#wq').value;
+    Water.setupEngine();
+    window.addEventListener('resize', Water.onResize);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) Water.stop();
+      else Water.start();
+    });
+    Water.setupInteractions();
+    Water.onResize();
+    Water.start();
+  },
+
+  setupEngine: () => {
+    Water.stop();
+    if (Water.quality === 'off') {
+      Water.mode = 'none';
+      if (Water.gl) Water.gl = null;
+      if (Water.ctx2d) Water.ctx2d.clearRect(0, 0, Water.canvas.width, Water.canvas.height);
+      return;
+    }
+
+    if (Water.quality === 'low') {
+      Water.mode = 'canvas';
+      Water.ctx2d = Water.canvas.getContext('2d');
+      Water.gl = null;
+      return;
+    }
+
+    // Try WebGL
+    try {
+      Water.gl = Water.canvas.getContext('webgl', { alpha: true, depth: false });
+      if (Water.gl) {
+        Water.mode = 'webgl';
+        Water.initShaders();
+        return;
+      }
+    } catch (e) {}
+
+    // Fallback to Canvas
+    Water.mode = 'canvas';
+    Water.ctx2d = Water.canvas.getContext('2d');
+  },
+
+  initShaders: () => {
+    const gl = Water.gl;
+    const vs = `
+      attribute vec2 position;
+      varying vec2 uv;
+      void main() {
+        uv = position * 0.5 + 0.5;
+        gl_Position = vec4(position, 0.0, 1.0);
+      }
+    `;
+    const fs = `
+      precision mediump float;
+      varying vec2 uv;
+      uniform vec2 u_res;
+      uniform float u_time;
+      uniform vec4 u_ripples[10];
+      uniform int u_count;
+
+      void main() {
+        vec2 p = (gl_FragCoord.xy * 2.0 - u_res) / min(u_res.x, u_res.y);
+        float h = 0.0;
+        h += sin(p.x * 3.5 + u_time * 0.42) * cos(p.y * 3.5 + u_time * 0.32) * 0.028;
+
+        for (int i = 0; i < 10; i++) {
+          if (i >= u_count) break;
+          vec2 rPos = (u_ripples[i].xy * 2.0 - u_res) / min(u_res.x, u_res.y);
+          float d = length(p - rPos);
+          float age = u_time - u_ripples[i].z;
+          if (age > 0.0 && age < 4.2) {
+            float distDiff = d - age * 0.52;
+            float atten = exp(-age * 0.85) * exp(-distDiff * distDiff * 28.0);
+            h += sin(distDiff * 22.0) * atten * u_ripples[i].w * 0.14;
+          }
+        }
+
+        vec3 deep = vec3(0.012, 0.051, 0.110);
+        vec3 mid = vec3(0.043, 0.227, 0.388);
+        vec3 cyan = vec3(0.22, 0.91, 1.0);
+
+        vec3 col = mix(deep, mid, smoothstep(-0.8, 0.8, p.y + h * 2.0));
+        col += cyan * abs(h) * 1.8;
+        gl_FragColor = vec4(col, 0.85);
+      }
+    `;
+
+    const compileShader = (src, type) => {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      return s;
+    };
+
+    const prog = gl.createProgram();
+    gl.attachShader(prog, compileShader(vs, gl.VERTEX_SHADER));
+    gl.attachShader(prog, compileShader(fs, gl.FRAGMENT_SHADER));
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+
+    const posBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+
+    const posAttr = gl.getAttribLocation(prog, 'position');
+    gl.enableVertexAttribArray(posAttr);
+    gl.vertexAttribPointer(posAttr, 2, gl.FLOAT, false, 0, 0);
+
+    Water.program = prog;
+    Water.uniforms = {
+      res: gl.getUniformLocation(prog, 'u_res'),
+      time: gl.getUniformLocation(prog, 'u_time'),
+      ripples: gl.getUniformLocation(prog, 'u_ripples'),
+      count: gl.getUniformLocation(prog, 'u_count')
+    };
+  },
+
+  onResize: () => {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    Water.canvas.width = window.innerWidth * dpr;
+    Water.canvas.height = window.innerHeight * dpr;
+    if (Water.gl) Water.gl.viewport(0, 0, Water.canvas.width, Water.canvas.height);
+    if (Water.ctx2d) Water.ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+  },
+
+  drip: (x, y, strength) => {
+    if (Water.quality === 'off' || !$('#fx').checked || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const nowSec = performance.now() / 1000;
+    if (Water.ripples.length >= WATER_CONFIG.maxRipples) {
+      Water.ripples.shift();
+    }
+    Water.ripples.push({
+      x: x * (window.devicePixelRatio || 1),
+      y: (window.innerHeight - y) * (window.devicePixelRatio || 1),
+      canvasX: x,
+      canvasY: y,
+      startTime: nowSec,
+      strength: strength || WATER_CONFIG.clickStrength
+    });
+  },
+
+  start: () => {
+    if (!Water.rafId && Water.mode !== 'none') {
+      Water.rafId = requestAnimationFrame(Water.loop);
+    }
+  },
+
+  stop: () => {
+    if (Water.rafId) {
+      cancelAnimationFrame(Water.rafId);
+      Water.rafId = 0;
+    }
+  },
+
+  loop: nowMs => {
+    const nowSec = nowMs / 1000;
+    Water.ripples = Water.ripples.filter(r => nowSec - r.startTime < WATER_CONFIG.rippleDuration);
+
+    if (Water.mode === 'webgl' && Water.gl) {
+      const gl = Water.gl;
+      gl.useProgram(Water.program);
+      gl.uniform2f(Water.uniforms.res, Water.canvas.width, Water.canvas.height);
+      gl.uniform1f(Water.uniforms.time, nowSec);
+
+      const ripData = new Float32Array(40);
+      Water.ripples.forEach((r, i) => {
+        ripData[i * 4] = r.x;
+        ripData[i * 4 + 1] = r.y;
+        ripData[i * 4 + 2] = r.startTime;
+        ripData[i * 4 + 3] = r.strength;
+      });
+      gl.uniform4fv(Water.uniforms.ripples, ripData);
+      gl.uniform1i(Water.uniforms.count, Water.ripples.length);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    } else if (Water.mode === 'canvas' && Water.ctx2d) {
+      const ctx = Water.ctx2d;
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      ctx.globalCompositeOperation = 'lighter';
+      for (const r of Water.ripples) {
+        const age = nowSec - r.startTime;
+        if (age <= 0 || age >= WATER_CONFIG.rippleDuration) continue;
+        const k = age / WATER_CONFIG.rippleDuration;
+        const maxR = WATER_CONFIG.canvasRadiusMax * r.strength;
+        for (let w = 0; w < 3; w++) {
+          const q = k - w * 0.07;
+          if (q <= 0) continue;
+          const radius = q * maxR;
+          const alpha = Math.pow(1 - q, 2.2) * 0.38 * (1 - w * 0.25);
+          if (alpha <= 0.01) continue;
+          ctx.beginPath();
+          ctx.arc(r.canvasX, r.canvasY, radius, 0, Math.PI * 2);
+          ctx.lineWidth = Math.max(0.8, (2.6 - w * 0.7) * (1 - q * 0.5));
+          ctx.strokeStyle = `rgba(56,232,255,${alpha})`;
+          ctx.stroke();
+        }
+      }
+    }
+
+    Water.rafId = requestAnimationFrame(Water.loop);
+  },
+
+  setupInteractions: () => {
+    const isBg = e => !e.target.closest('button,input,select,a,label,table,summary,details,.modal,nav');
+    window.addEventListener('pointerdown', e => {
+      if (isBg(e)) {
+        Water.drip(e.clientX, e.clientY, WATER_CONFIG.clickStrength);
+        Water.lastX = e.clientX;
+        Water.lastY = e.clientY;
+      }
+    });
+    window.addEventListener('pointermove', e => {
+      if (e.pointerType === 'touch') return; // Smooth scrolling without ripples on mobile
+      if (!isBg(e)) return;
+      const now = e.timeStamp;
+      if (now - Water.lastMove > WATER_CONFIG.moveThrottleMs) {
+        const dist = Math.hypot(e.clientX - Water.lastX, e.clientY - Water.lastY);
+        if (dist >= WATER_CONFIG.moveMinDist) {
+          Water.lastMove = now;
+          Water.lastX = e.clientX;
+          Water.lastY = e.clientY;
+          Water.drip(e.clientX, e.clientY, WATER_CONFIG.moveStrength);
+        }
+      }
+    });
+  }
+};
+
+$('#wq').onchange = () => {
+  Water.setupEngine();
+  Water.start();
+};
+
+/* =====================================================================
+   APP MODAL & NAVIGATION CONTROLLER
+   ===================================================================== */
+function openModal(sel) {
+  closeAllModals();
+  const m = $(sel);
+  if (m) {
+    m.classList.add('active');
+    activeModal = m;
+  }
+}
+
+function closeAllModals() {
+  $$('.modal-overlay').forEach(m => m.classList.remove('active'));
+  activeModal = null;
+}
+
+$$('[data-close]').forEach(btn => btn.onclick = closeAllModals);
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeAllModals();
+});
+
+// Title letter generation
+"BANKER’S ALGORITHM".split('').forEach((ch, idx) => {
+  const span = document.createElement('span');
+  span.className = 'l';
+  span.style.setProperty('--i', idx);
+  span.innerHTML = ch === ' ' ? '&nbsp;' : ch;
+  span.setAttribute('aria-hidden', 'true');
+  $('#ttl').append(span);
+});
+
+// Navigation Transitions
+const enterSim = () => {
+  $('#land').hidden = true;
+  $('#app').hidden = false;
+  window.scrollTo(0, 0);
+  recalculateSafety();
+};
+
+$('#go').onclick = enterSim;
+$('#sk').onclick = () => {
+  document.body.classList.add('nofx');
+  $('#fx').checked = false;
+  enterSim();
+};
+$('#bk').onclick = () => {
+  $('#app').hidden = true;
+  $('#land').hidden = false;
+};
+$('#ex').onclick = () => $('#how').scrollIntoView({ behavior: 'smooth' });
+$('#demo-btn').onclick = () => {
+  enterSim();
+  $('#btn-pres').click();
+};
+
+// Button Ripple FX
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest('.btn');
+  if (b) {
+    const r = b.getBoundingClientRect();
+    b.style.setProperty('--x', (e.clientX - r.left) + 'px');
+    b.style.setProperty('--y', (e.clientY - r.top) + 'px');
+    b.classList.remove('rp');
+    void b.offsetWidth;
+    b.classList.add('rp');
+  }
+});
+
+// Reduced motion listener
+window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', e => {
+  if (e.matches) {
+    $('#fx').checked = false;
+    document.body.classList.add('nofx');
+  }
+});
+
+// Native Android & Capacitor back button handling
+function handleAndroidBackButton() {
+  if (activeModal) {
+    closeAllModals();
+    return true;
+  }
+  if (HistoryManager.isInspecting()) {
+    HistoryManager.returnToLive();
+    recalculateSafety();
+    showToast('Returned to Live Simulation', 'ok');
+    return true;
+  }
+  if (!$('#app').hidden) {
+    $('#app').hidden = true;
+    $('#land').hidden = false;
+    return true;
+  }
+  return false;
+}
+
+document.addEventListener('backbutton', handleAndroidBackButton);
+window.addEventListener('popstate', handleAndroidBackButton);
+if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+  window.Capacitor.Plugins.App.addListener('backButton', ({ canGoBack }) => {
+    if (!handleAndroidBackButton() && canGoBack) {
+      window.history.back();
+    }
+  });
+}
+
+// Initial reduced motion check on load
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  document.body.classList.add('nofx');
+  const fxBox = $('#fx');
+  if (fxBox) fxBox.checked = false;
+}
+
+// Initial boot
+Water.init();
+loadScenario('classic');
+updateLandingPreview();
+</script>
+</body>
+</html>

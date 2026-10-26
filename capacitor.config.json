@@ -1,0 +1,9 @@
+{
+  "appId": "io.tidewater.bankersimulator",
+  "appName": "Tidewater Banker Simulator",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}
